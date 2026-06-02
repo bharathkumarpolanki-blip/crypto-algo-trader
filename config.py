@@ -1,0 +1,87 @@
+"""Central configuration for the trading bot."""
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ── Exchange ──────────────────────────────────────────────────────────────────
+EXCHANGE          = os.getenv("EXCHANGE", "coinbase")
+API_KEY           = os.getenv("API_KEY", "")
+API_SECRET        = os.getenv("API_SECRET", "")
+TESTNET           = os.getenv("TESTNET", "false").lower() == "true"
+
+# ── Capital / Risk ────────────────────────────────────────────────────────────
+TOTAL_CAPITAL_USDT      = float(os.getenv("TOTAL_CAPITAL_USDT", 1000))
+MAX_OPEN_POSITIONS      = int(os.getenv("MAX_OPEN_POSITIONS", 5))
+RISK_PER_TRADE_PCT      = float(os.getenv("RISK_PER_TRADE_PCT", 2.0))
+MAX_PORTFOLIO_RISK_PCT  = float(os.getenv("MAX_PORTFOLIO_RISK_PCT", 10.0))
+
+# ── Universe of coins to scan ─────────────────────────────────────────────────
+# Coinbase trades against USD (not USDT)
+WATCHLIST = [
+    "BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD",
+    "DOGE/USD", "ADA/USD", "LINK/USD", "DOT/USD", "UNI/USD",
+    "ATOM/USD", "NEAR/USD", "AAVE/USD", "CRV/USD",
+]
+# Removed: AVAX/USD (consistently -10%), OP/USD (0% win rate across all backtests)
+
+# Quote currency used for capital accounting
+QUOTE_CURRENCY = "USD"
+
+# ── Timeframes used in multi-timeframe analysis ───────────────────────────────
+TF_PRIMARY   = "1h"   # signal generation
+TF_TREND     = "6h"   # trend filter (Coinbase supports 1h/2h/6h/1d — not 4h)
+TF_ENTRY     = "15m"  # entry timing
+
+# ── Technical indicator parameters ───────────────────────────────────────────
+EMA_FAST     = 9
+EMA_MID      = 21
+EMA_SLOW     = 50
+EMA_TREND    = 200
+
+RSI_PERIOD   = 14
+RSI_OVERSOLD = 35
+RSI_OVERBOUGHT = 65
+
+MACD_FAST    = 12
+MACD_SLOW    = 26
+MACD_SIGNAL  = 9
+
+BB_PERIOD    = 20
+BB_STD       = 2.0
+
+ATR_PERIOD   = 14
+ADX_PERIOD   = 14
+ADX_THRESHOLD = 22        # minimum ADX to confirm trend (lowered to not over-filter)
+
+STOCH_K      = 14
+STOCH_D      = 3
+STOCH_SMOOTH = 3
+
+VOLUME_MA_PERIOD = 20
+VOLUME_SURGE_MULTIPLIER = 1.5   # volume must be >1.5x 20-period average
+
+# ── Trade management ─────────────────────────────────────────────────────────
+ATR_STOP_MULTIPLIER    = 1.5   # stop = entry ± ATR*1.5 (tighter, less capital burned on losers)
+ATR_TARGET_MULTIPLIER  = 4.0   # target = entry ± ATR*4  (RR = 2.67 — needs fewer wins to profit)
+TRAILING_STOP_ATR      = 2.0   # trail at 2 ATR (give winners more room to run)
+
+# ── Signal scoring thresholds ─────────────────────────────────────────────────
+MIN_SIGNAL_SCORE = 5.5         # sweet spot — filters noise without killing BTC/ETH longs
+STRONG_SIGNAL_SCORE = 7.5      # raised — scale up only on very strong setups
+
+# ── Candles to fetch per symbol ───────────────────────────────────────────────
+CANDLE_LIMIT = 300
+
+# ── Sentiment ─────────────────────────────────────────────────────────────────
+# No API keys required — uses Alternative.me + CoinGecko + RSS feeds
+SENTIMENT_WEIGHT    = 1.0      # how much sentiment contributes to signal score
+
+# ── Telegram notifications ────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# ── Bot loop ──────────────────────────────────────────────────────────────────
+SCAN_INTERVAL_SECONDS = 300    # scan every 5 minutes
+DRY_RUN = True                 # True = never place real orders; just log signals
