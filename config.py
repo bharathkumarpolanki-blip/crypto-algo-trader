@@ -63,9 +63,9 @@ VOLUME_MA_PERIOD = 20
 VOLUME_SURGE_MULTIPLIER = 1.5   # volume must be >1.5x 20-period average
 
 # ── Trade management ─────────────────────────────────────────────────────────
-ATR_STOP_MULTIPLIER    = 1.5   # stop = entry ± ATR*1.5 (tighter, less capital burned on losers)
-ATR_TARGET_MULTIPLIER  = 4.0   # target = entry ± ATR*4  (RR = 2.67 — needs fewer wins to profit)
-TRAILING_STOP_ATR      = 2.0   # trail at 2 ATR (give winners more room to run)
+ATR_STOP_MULTIPLIER    = 1.5   # stop = entry ± ATR*1.5
+ATR_TARGET_MULTIPLIER  = 3.0   # reduced from 4.0 — more achievable, RR = 2.0
+TRAILING_STOP_ATR      = 1.5   # trail at 1.5 ATR — lock in profits sooner
 
 # ── Signal scoring thresholds ─────────────────────────────────────────────────
 MIN_SIGNAL_SCORE = 5.5         # sweet spot — filters noise without killing BTC/ETH longs

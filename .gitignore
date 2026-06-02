@@ -1,2 +1,16 @@
-#Ignore below file
+# Secrets & credentials
 .env
+
+# Logs
+trading_bot.log
+
+# Runtime state (contains live position data — not for version control)
+positions.json
+
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
