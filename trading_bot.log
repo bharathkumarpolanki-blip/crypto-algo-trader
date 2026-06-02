@@ -24384,3 +24384,523 @@ when serializing dict item 'backtest_results'
 2026-06-01 22:27:17,530 [INFO] bot: Cannot open HYPE/USD: already have open position in HYPE/USD
 2026-06-01 22:27:17,530 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
 2026-06-01 22:27:17,530 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-01 22:31:46,182 [INFO] universe: Universe refresh starting — scanning all Coinbase USD pairs…
+2026-06-01 22:31:46,582 [INFO] universe: Top 40 candidates by 24h volume+momentum: ['WLD/USD', 'NEAR/USD', 'BILL/USD', 'INJ/USD', 'TON/USD', 'JTO/USD', 'HYPE/USD', 'ICP/USD', 'ETH/USD', 'DOGE/USD']
+2026-06-01 22:32:06,476 [INFO] universe: Universe refreshed → 15 symbols | added=[] | removed=[]
+2026-06-01 22:32:22,667 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, TON/USD, HYPE/USD, NEAR/USD, JTO/USD, FET/USD, INJ/USD
+2026-06-01 22:32:24,436 [INFO] bot: SIGNAL STG/USD dir=long score=7.0 rr=2.67
+2026-06-01 22:32:25,209 [INFO] bot: SIGNAL WLD/USD dir=long score=6.5 rr=2.67
+2026-06-01 22:32:25,758 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-01 22:32:27,445 [INFO] bot: SIGNAL HYPE/USD dir=long score=6.7 rr=2.67
+2026-06-01 22:32:28,359 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-01 22:32:30,848 [INFO] bot: SIGNAL INJ/USD dir=long score=6.5 rr=2.67
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open STG/USD: already have open position in STG/USD
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open WLD/USD: already have open position in WLD/USD
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open BILL/USD: max open positions (5) reached
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open HYPE/USD: already have open position in HYPE/USD
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-01 22:32:30,848 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-01 22:37:37,578 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, TON/USD, HYPE/USD, NEAR/USD, JTO/USD, FET/USD, INJ/USD
+2026-06-01 22:37:38,308 [INFO] bot: SIGNAL STG/USD dir=long score=6.7 rr=2.67
+2026-06-01 22:37:41,292 [INFO] bot: SIGNAL WLD/USD dir=long score=6.3 rr=2.67
+2026-06-01 22:37:41,853 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-01 22:37:45,559 [INFO] bot: SIGNAL HYPE/USD dir=long score=7.4 rr=2.67
+2026-06-01 22:37:46,578 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-01 22:37:50,882 [INFO] bot: SIGNAL INJ/USD dir=long score=6.5 rr=2.67
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open STG/USD: already have open position in STG/USD
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open WLD/USD: already have open position in WLD/USD
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open BILL/USD: max open positions (5) reached
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open HYPE/USD: already have open position in HYPE/USD
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-01 22:37:50,883 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-01 22:42:56,140 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, TON/USD, HYPE/USD, NEAR/USD, FET/USD, JTO/USD, INJ/USD
+2026-06-01 22:42:56,715 [INFO] bot: SIGNAL STG/USD dir=long score=7.0 rr=2.67
+2026-06-01 22:42:57,576 [INFO] bot: SIGNAL WLD/USD dir=long score=6.3 rr=2.67
+2026-06-01 22:42:58,112 [INFO] bot: SIGNAL BILL/USD dir=long score=6.1 rr=2.67
+2026-06-01 22:42:59,759 [INFO] bot: SIGNAL HYPE/USD dir=long score=6.8 rr=2.67
+2026-06-01 22:43:00,536 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-01 22:43:02,959 [INFO] bot: SIGNAL INJ/USD dir=long score=6.5 rr=2.67
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open STG/USD: already have open position in STG/USD
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open WLD/USD: already have open position in WLD/USD
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open BILL/USD: max open positions (5) reached
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open HYPE/USD: already have open position in HYPE/USD
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-01 22:43:02,959 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 00:03:11,539 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, TON/USD, JTO/USD, HYPE/USD, NEAR/USD, FET/USD, INJ/USD
+2026-06-02 00:03:22,450 [INFO] bot: SIGNAL STG/USD dir=long score=6.5 rr=2.67
+2026-06-02 00:03:23,362 [INFO] bot: SIGNAL WLD/USD dir=long score=6.3 rr=2.67
+2026-06-02 00:03:24,164 [INFO] bot: SIGNAL BILL/USD dir=long score=5.7 rr=2.67
+2026-06-02 00:03:25,798 [INFO] bot: SIGNAL JTO/USD dir=long score=6.7 rr=2.67
+2026-06-02 00:03:26,614 [INFO] bot: SIGNAL HYPE/USD dir=long score=6.9 rr=2.67
+2026-06-02 00:03:27,641 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.7 rr=2.67
+2026-06-02 00:03:28,513 [INFO] bot: SIGNAL FET/USD dir=long score=6.5 rr=2.67
+2026-06-02 00:03:29,511 [INFO] bot: SIGNAL INJ/USD dir=long score=6.5 rr=2.67
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open STG/USD: already have open position in STG/USD
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open WLD/USD: already have open position in WLD/USD
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open BILL/USD: max open positions (5) reached
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open JTO/USD: max open positions (5) reached
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open HYPE/USD: already have open position in HYPE/USD
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 00:03:29,512 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 05:10:41,069 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, FET/USD, NEAR/USD, XLM/USD, ICP/USD
+2026-06-02 05:10:44,201 [INFO] bot: SIGNAL STG/USD dir=long score=6.9 rr=2.67
+2026-06-02 05:10:45,504 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-02 05:10:46,271 [INFO] bot: SIGNAL JTO/USD dir=long score=6.2 rr=2.67
+2026-06-02 05:10:48,846 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.1 rr=2.67
+2026-06-02 05:10:50,177 [INFO] bot: SIGNAL ICP/USD dir=long score=5.7 rr=2.67
+2026-06-02 05:10:50,177 [INFO] bot: Cannot open STG/USD: already have open position in STG/USD
+2026-06-02 05:10:50,177 [INFO] bot: Cannot open BILL/USD: max open positions (5) reached
+2026-06-02 05:10:50,177 [INFO] bot: Cannot open JTO/USD: max open positions (5) reached
+2026-06-02 05:10:50,177 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-02 05:10:50,177 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 05:10:50,321 [INFO] risk_manager: Position closed: TON/USD @ 1.995000  Reason=stop_loss  PnL=-11.5257 USDT  Capital=970.31
+2026-06-02 05:10:50,321 [INFO] market_data: [DRY RUN] MARKET SELL TON/USD 94.473311 @ market
+2026-06-02 05:10:50,843 [INFO] bot: TRADE CLOSED: TON/USD @ 1.995000  Reason=stop_loss  PnL=-11.5257
+2026-06-02 05:10:50,946 [INFO] risk_manager: Position closed: HYPE/USD @ 71.130000  Reason=stop_loss  PnL=-4.9630 USDT  Capital=965.34
+2026-06-02 05:10:50,946 [INFO] market_data: [DRY RUN] MARKET SELL HYPE/USD 2.741980 @ market
+2026-06-02 05:10:51,483 [INFO] bot: TRADE CLOSED: HYPE/USD @ 71.130000  Reason=stop_loss  PnL=-4.9630
+2026-06-02 05:10:51,662 [INFO] risk_manager: Trailing stop raised for STG/USD → 0.331708
+2026-06-02 06:44:59,907 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, NEAR/USD, FET/USD, XLM/USD, ICP/USD
+2026-06-02 06:45:09,762 [INFO] bot: SIGNAL BILL/USD dir=long score=6.3 rr=2.67
+2026-06-02 06:45:10,718 [INFO] bot: SIGNAL JTO/USD dir=long score=6.8 rr=2.67
+2026-06-02 06:45:12,529 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.3 rr=2.67
+2026-06-02 06:45:14,796 [INFO] bot: SIGNAL ICP/USD dir=long score=5.8 rr=2.67
+2026-06-02 06:45:14,796 [INFO] market_data: [DRY RUN] MARKET BUY BILL/USD 2034.443073 @ market
+2026-06-02 06:45:14,796 [INFO] risk_manager: Position opened: LONG BILL/USD @ 0.094900  SL=0.089997  TP=0.107975  qty=2034.443073
+2026-06-02 06:45:15,290 [INFO] bot: TRADE OPENED: LONG BILL/USD score=6.3  entry=0.094900  SL=0.089997  TP=0.107975  qty=2034.443073
+2026-06-02 06:45:15,291 [INFO] market_data: [DRY RUN] MARKET BUY JTO/USD 301.764063 @ market
+2026-06-02 06:45:15,291 [INFO] risk_manager: Position opened: LONG JTO/USD @ 0.639800  SL=0.602282  TP=0.739848  qty=301.764063
+2026-06-02 06:45:15,844 [INFO] bot: TRADE OPENED: LONG JTO/USD score=6.8  entry=0.639800  SL=0.602282  TP=0.739848  qty=301.764063
+2026-06-02 06:45:15,844 [INFO] bot: Cannot open NEAR/USD: max open positions (5) reached
+2026-06-02 06:45:15,844 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 06:45:16,277 [INFO] risk_manager: Position closed: STG/USD @ 0.320100  Reason=stop_loss  PnL=-5.5440 USDT  Capital=959.80
+2026-06-02 06:45:16,277 [INFO] market_data: [DRY RUN] MARKET SELL STG/USD 596.133555 @ market
+2026-06-02 06:45:16,902 [INFO] bot: TRADE CLOSED: STG/USD @ 0.320100  Reason=stop_loss  PnL=-5.5440
+2026-06-02 07:15:23,237 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, NEAR/USD, FET/USD, ICP/USD, XLM/USD
+2026-06-02 07:15:30,277 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-02 07:15:31,096 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 07:15:32,917 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 07:15:34,416 [INFO] bot: SIGNAL ICP/USD dir=long score=6.0 rr=2.67
+2026-06-02 07:15:35,194 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:15:35,194 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:15:35,194 [INFO] market_data: [DRY RUN] MARKET BUY NEAR/USD 70.912390 @ market
+2026-06-02 07:15:35,194 [INFO] risk_manager: Position opened: LONG NEAR/USD @ 2.707000  SL=2.591591  TP=3.014756  qty=70.912390
+2026-06-02 07:15:35,692 [INFO] bot: TRADE OPENED: LONG NEAR/USD score=6.5  entry=2.707000  SL=2.591591  TP=3.014756  qty=70.912390
+2026-06-02 07:15:35,693 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:20:41,550 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, NEAR/USD, FET/USD, ICP/USD, XLM/USD
+2026-06-02 07:20:42,160 [INFO] bot: SIGNAL STG/USD dir=long score=5.6 rr=2.67
+2026-06-02 07:20:43,567 [INFO] bot: SIGNAL BILL/USD dir=long score=6.9 rr=2.67
+2026-06-02 07:20:44,401 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 07:20:45,978 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 07:20:47,449 [INFO] bot: SIGNAL ICP/USD dir=long score=6.2 rr=2.67
+2026-06-02 07:20:48,254 [INFO] bot: Cannot open STG/USD: max open positions (5) reached
+2026-06-02 07:20:48,254 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:20:48,255 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:20:48,255 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:20:48,255 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:25:53,604 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, NEAR/USD, FET/USD, ICP/USD, XLM/USD
+2026-06-02 07:25:54,252 [INFO] bot: SIGNAL STG/USD dir=long score=5.6 rr=2.67
+2026-06-02 07:25:55,667 [INFO] bot: SIGNAL BILL/USD dir=long score=6.2 rr=2.67
+2026-06-02 07:25:56,505 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 07:25:58,114 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 07:25:58,932 [INFO] bot: SIGNAL FET/USD dir=long score=6.6 rr=2.67
+2026-06-02 07:25:59,475 [INFO] bot: SIGNAL ICP/USD dir=long score=6.2 rr=2.67
+2026-06-02 07:26:00,444 [INFO] bot: Cannot open STG/USD: max open positions (5) reached
+2026-06-02 07:26:00,444 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:26:00,444 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:26:00,444 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:26:00,445 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:26:00,445 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:31:05,793 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, NEAR/USD, FET/USD, XLM/USD, ICP/USD
+2026-06-02 07:31:06,449 [INFO] bot: SIGNAL STG/USD dir=long score=5.6 rr=2.67
+2026-06-02 07:31:07,794 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-02 07:31:08,608 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 07:31:10,496 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.3 rr=2.67
+2026-06-02 07:31:11,318 [INFO] bot: SIGNAL FET/USD dir=long score=5.7 rr=2.67
+2026-06-02 07:31:12,806 [INFO] bot: SIGNAL ICP/USD dir=long score=6.2 rr=2.67
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open STG/USD: max open positions (5) reached
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:31:12,807 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:36:18,105 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, FET/USD, NEAR/USD, ICP/USD, XLM/USD
+2026-06-02 07:36:28,430 [INFO] bot: SIGNAL STG/USD dir=long score=5.6 rr=2.67
+2026-06-02 07:36:29,791 [INFO] bot: SIGNAL BILL/USD dir=long score=6.8 rr=2.67
+2026-06-02 07:36:30,695 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 07:36:32,399 [INFO] bot: SIGNAL FET/USD dir=long score=6.0 rr=2.67
+2026-06-02 07:36:33,190 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.3 rr=2.67
+2026-06-02 07:36:33,756 [INFO] bot: SIGNAL ICP/USD dir=long score=6.2 rr=2.67
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open STG/USD: max open positions (5) reached
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:36:34,602 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:41:39,825 [INFO] bot: Active symbols (9/15): STG/USD, WLD/USD, BILL/USD, JTO/USD, TON/USD, FET/USD, NEAR/USD, ICP/USD, XLM/USD
+2026-06-02 07:41:41,951 [INFO] bot: SIGNAL BILL/USD dir=long score=6.9 rr=2.67
+2026-06-02 07:41:42,765 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 07:41:44,376 [INFO] bot: SIGNAL FET/USD dir=long score=6.9 rr=2.67
+2026-06-02 07:41:45,195 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.4 rr=2.67
+2026-06-02 07:41:45,791 [INFO] bot: SIGNAL ICP/USD dir=long score=6.4 rr=2.67
+2026-06-02 07:41:46,609 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:41:46,609 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:41:46,609 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:41:46,609 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:41:46,609 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:43:13,083 [INFO] universe: Universe refresh starting — scanning all Coinbase USD pairs…
+2026-06-02 07:43:13,307 [INFO] universe: Top 40 candidates by 24h volume+momentum: ['JTO/USD', 'NEAR/USD', 'WLD/USD', 'RENDER/USD', 'ICP/USD', 'INJ/USD', 'BILL/USD', 'ZEC/USD', 'TON/USD', 'ETH/USD']
+2026-06-02 07:43:26,666 [INFO] universe: Universe refreshed → 15 symbols | added=['RENDER/USD', 'VVV/USD'] | removed=['STG/USD', 'BNB/USD']
+2026-06-02 07:46:51,974 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, JTO/USD, VVV/USD, TON/USD, FET/USD, NEAR/USD, ICP/USD, XLM/USD
+2026-06-02 07:46:54,522 [INFO] bot: SIGNAL BILL/USD dir=long score=5.9 rr=2.67
+2026-06-02 07:46:55,369 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 07:46:57,893 [INFO] bot: SIGNAL FET/USD dir=long score=6.9 rr=2.67
+2026-06-02 07:46:58,850 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.1 rr=2.67
+2026-06-02 07:46:59,427 [INFO] bot: SIGNAL ICP/USD dir=long score=6.6 rr=2.67
+2026-06-02 07:47:00,229 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:47:00,229 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:47:00,229 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:47:00,229 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:47:00,229 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:52:05,629 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, JTO/USD, TON/USD, FET/USD, VVV/USD, NEAR/USD, ICP/USD, XLM/USD
+2026-06-02 07:52:07,032 [INFO] bot: SIGNAL BILL/USD dir=long score=6.3 rr=2.67
+2026-06-02 07:52:07,923 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 07:52:09,594 [INFO] bot: SIGNAL FET/USD dir=long score=6.9 rr=2.67
+2026-06-02 07:52:11,279 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 07:52:11,889 [INFO] bot: SIGNAL ICP/USD dir=long score=7.0 rr=2.67
+2026-06-02 07:52:12,707 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:52:12,707 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:52:12,707 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 07:52:12,707 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:52:12,707 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:57:17,836 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, JTO/USD, VVV/USD, TON/USD, ICP/USD, NEAR/USD, FET/USD, XLM/USD
+2026-06-02 07:57:20,561 [INFO] bot: SIGNAL BILL/USD dir=long score=6.7 rr=2.67
+2026-06-02 07:57:21,334 [INFO] bot: SIGNAL JTO/USD dir=long score=7.2 rr=2.67
+2026-06-02 07:57:23,531 [INFO] bot: SIGNAL ICP/USD dir=long score=7.5 rr=2.67
+2026-06-02 07:57:24,362 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.4 rr=2.67
+2026-06-02 07:57:25,176 [INFO] bot: SIGNAL FET/USD dir=long score=6.0 rr=2.67
+2026-06-02 07:57:25,988 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 07:57:25,988 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 07:57:25,988 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 07:57:25,988 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 07:57:25,988 [INFO] bot: Cannot open FET/USD: already have open position in FET/USD
+2026-06-02 08:02:31,249 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, ICP/USD, VVV/USD, JTO/USD, NEAR/USD, XLM/USD, RENDER/USD
+2026-06-02 08:02:32,622 [INFO] bot: SIGNAL BILL/USD dir=long score=6.2 rr=2.67
+2026-06-02 08:02:34,090 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 08:02:35,786 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:02:36,885 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:02:38,477 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.5 rr=2.67
+2026-06-02 08:02:38,477 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:02:38,477 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:02:38,477 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:02:38,477 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:02:38,477 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:07:44,552 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, ICP/USD, VVV/USD, JTO/USD, NEAR/USD, XLM/USD, RENDER/USD
+2026-06-02 08:07:45,919 [INFO] bot: SIGNAL BILL/USD dir=long score=7.3 rr=2.67
+2026-06-02 08:07:47,394 [INFO] bot: SIGNAL ICP/USD dir=long score=6.9 rr=2.67
+2026-06-02 08:07:49,179 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:07:50,067 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:07:51,892 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.3 rr=2.67
+2026-06-02 08:07:51,893 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:07:51,893 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:07:51,893 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:07:51,893 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:07:51,893 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:12:57,182 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, ICP/USD, VVV/USD, NEAR/USD, JTO/USD, XLM/USD, RENDER/USD
+2026-06-02 08:12:58,546 [INFO] bot: SIGNAL BILL/USD dir=long score=7.3 rr=2.67
+2026-06-02 08:12:59,941 [INFO] bot: SIGNAL ICP/USD dir=long score=6.9 rr=2.67
+2026-06-02 08:13:01,638 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:13:02,470 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:13:04,098 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.4 rr=2.67
+2026-06-02 08:13:04,098 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:13:04,098 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:13:04,098 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:13:04,098 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:13:04,098 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:18:09,266 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, JTO/USD, ICP/USD, NEAR/USD, XLM/USD, RENDER/USD
+2026-06-02 08:18:12,087 [INFO] bot: SIGNAL BILL/USD dir=long score=7.3 rr=2.67
+2026-06-02 08:18:14,468 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:18:15,109 [INFO] bot: SIGNAL ICP/USD dir=long score=6.3 rr=2.67
+2026-06-02 08:18:16,118 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.8 rr=2.67
+2026-06-02 08:18:17,729 [INFO] bot: SIGNAL RENDER/USD dir=long score=5.8 rr=2.67
+2026-06-02 08:18:17,730 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:18:17,730 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:18:17,730 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:18:17,730 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:18:17,730 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:23:22,819 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, JTO/USD, XLM/USD, RENDER/USD
+2026-06-02 08:23:24,284 [INFO] bot: SIGNAL BILL/USD dir=long score=7.3 rr=2.67
+2026-06-02 08:23:26,637 [INFO] bot: SIGNAL ICP/USD dir=long score=6.5 rr=2.67
+2026-06-02 08:23:27,507 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.9 rr=2.67
+2026-06-02 08:23:28,327 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:23:29,908 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.2 rr=2.67
+2026-06-02 08:23:29,908 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:23:29,908 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:23:29,908 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:23:29,908 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:23:29,908 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:28:35,226 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, JTO/USD, XLM/USD, RENDER/USD
+2026-06-02 08:28:36,603 [INFO] bot: SIGNAL BILL/USD dir=long score=7.2 rr=2.67
+2026-06-02 08:28:39,063 [INFO] bot: SIGNAL ICP/USD dir=long score=6.5 rr=2.67
+2026-06-02 08:28:39,878 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.9 rr=2.67
+2026-06-02 08:28:40,703 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:28:42,313 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.3 rr=2.67
+2026-06-02 08:28:42,313 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:28:42,313 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:28:42,314 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:28:42,314 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:28:42,314 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:33:47,714 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, NEAR/USD, ICP/USD, JTO/USD, XLM/USD, RENDER/USD
+2026-06-02 08:33:49,066 [INFO] bot: SIGNAL BILL/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:33:51,654 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.9 rr=2.67
+2026-06-02 08:33:52,261 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 08:33:53,126 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:33:54,770 [INFO] bot: SIGNAL RENDER/USD dir=long score=5.8 rr=2.67
+2026-06-02 08:33:54,770 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:33:54,770 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:33:54,770 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:33:54,770 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:33:54,770 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:39:00,175 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, JTO/USD, XLM/USD, RENDER/USD
+2026-06-02 08:39:03,105 [INFO] bot: SIGNAL BILL/USD dir=long score=7.3 rr=2.67
+2026-06-02 08:39:05,333 [INFO] bot: SIGNAL ICP/USD dir=long score=6.4 rr=2.67
+2026-06-02 08:39:06,276 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-02 08:39:07,155 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:39:08,864 [INFO] bot: SIGNAL RENDER/USD dir=long score=6.8 rr=2.67
+2026-06-02 08:39:08,864 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:39:08,864 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:39:08,864 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:39:08,864 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:39:08,864 [INFO] bot: Cannot open RENDER/USD: max open positions (5) reached
+2026-06-02 08:43:26,708 [INFO] universe: Universe refresh starting — scanning all Coinbase USD pairs…
+2026-06-02 08:43:26,932 [INFO] universe: Top 40 candidates by 24h volume+momentum: ['NEAR/USD', 'WLD/USD', 'JTO/USD', 'ICP/USD', 'RENDER/USD', 'BILL/USD', 'ZEC/USD', 'INJ/USD', 'TON/USD', 'ONDO/USD']
+2026-06-02 08:43:40,284 [INFO] universe: Universe refreshed → 15 symbols | added=['ZEC/USD'] | removed=['RENDER/USD']
+2026-06-02 08:44:14,006 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, JTO/USD, ZEC/USD, XLM/USD
+2026-06-02 08:44:15,440 [INFO] bot: SIGNAL BILL/USD dir=long score=6.4 rr=2.67
+2026-06-02 08:44:17,645 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 08:44:18,457 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-02 08:44:19,237 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:44:20,111 [INFO] bot: SIGNAL ZEC/USD dir=long score=6.3 rr=2.67
+2026-06-02 08:44:21,202 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:44:21,202 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:44:21,202 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:44:21,202 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:44:21,202 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 08:49:30,830 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, ICP/USD, VVV/USD, NEAR/USD, JTO/USD, ZEC/USD, XLM/USD
+2026-06-02 08:49:33,346 [INFO] bot: SIGNAL BILL/USD dir=long score=6.2 rr=2.67
+2026-06-02 08:49:34,816 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 08:49:36,657 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-02 08:49:37,443 [INFO] bot: SIGNAL JTO/USD dir=long score=7.0 rr=2.67
+2026-06-02 08:49:38,237 [INFO] bot: SIGNAL ZEC/USD dir=long score=6.2 rr=2.67
+2026-06-02 08:49:39,022 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:49:39,022 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:49:39,022 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:49:39,022 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:49:39,022 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 08:54:44,110 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, NEAR/USD, ICP/USD, JTO/USD, ZEC/USD, XLM/USD
+2026-06-02 08:54:45,624 [INFO] bot: SIGNAL BILL/USD dir=long score=6.2 rr=2.67
+2026-06-02 08:54:48,064 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.2 rr=2.67
+2026-06-02 08:54:48,632 [INFO] bot: SIGNAL ICP/USD dir=long score=6.6 rr=2.67
+2026-06-02 08:54:49,379 [INFO] bot: SIGNAL JTO/USD dir=long score=7.1 rr=2.67
+2026-06-02 08:54:50,199 [INFO] bot: SIGNAL ZEC/USD dir=long score=6.3 rr=2.67
+2026-06-02 08:54:51,035 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 08:54:51,035 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 08:54:51,035 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 08:54:51,035 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 08:54:51,035 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 08:59:56,568 [INFO] bot: Active symbols (9/15): WLD/USD, BILL/USD, TON/USD, VVV/USD, JTO/USD, ICP/USD, NEAR/USD, ZEC/USD, HYPE/USD
+2026-06-02 08:59:59,301 [INFO] bot: SIGNAL BILL/USD dir=long score=6.1 rr=2.67
+2026-06-02 09:00:01,483 [INFO] bot: SIGNAL JTO/USD dir=long score=7.4 rr=2.67
+2026-06-02 09:00:01,867 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 09:00:02,474 [INFO] bot: SIGNAL NEAR/USD dir=long score=7.4 rr=2.67
+2026-06-02 09:00:03,066 [INFO] bot: SIGNAL ZEC/USD dir=long score=6.5 rr=2.67
+2026-06-02 09:00:03,715 [INFO] bot: Cannot open BILL/USD: already have open position in BILL/USD
+2026-06-02 09:00:03,715 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:00:03,715 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 09:00:03,715 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:00:03,715 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 09:05:09,656 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, NEAR/USD, VVV/USD, ICP/USD, BILL/USD, JTO/USD, ZEC/USD, HYPE/USD
+2026-06-02 09:05:12,326 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 09:05:13,924 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 09:05:15,317 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:05:16,934 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:05:16,934 [INFO] bot: Cannot open ICP/USD: max open positions (5) reached
+2026-06-02 09:05:16,934 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:05:17,381 [INFO] risk_manager: Position closed: BILL/USD @ 0.085720  Reason=stop_loss  PnL=-18.6762 USDT  Capital=941.12
+2026-06-02 09:05:17,381 [INFO] market_data: [DRY RUN] MARKET SELL BILL/USD 2034.443073 @ market
+2026-06-02 09:05:17,907 [INFO] bot: TRADE CLOSED: BILL/USD @ 0.085720  Reason=stop_loss  PnL=-18.6762
+2026-06-02 09:10:22,724 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, NEAR/USD, JTO/USD, ZEC/USD, XLM/USD, HYPE/USD
+2026-06-02 09:10:25,127 [INFO] bot: SIGNAL ICP/USD dir=long score=6.6 rr=2.67
+2026-06-02 09:10:26,778 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.2 rr=2.67
+2026-06-02 09:10:27,619 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:10:30,176 [INFO] market_data: [DRY RUN] MARKET BUY ICP/USD 61.151592 @ market
+2026-06-02 09:10:30,176 [INFO] risk_manager: Position opened: LONG ICP/USD @ 3.078000  SL=2.965650  TP=3.377600  qty=61.151592
+2026-06-02 09:10:30,689 [INFO] bot: TRADE OPENED: LONG ICP/USD score=6.6  entry=3.078000  SL=2.965650  TP=3.377600  qty=61.151592
+2026-06-02 09:10:30,689 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:10:30,689 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:15:35,986 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, JTO/USD, ZEC/USD, XLM/USD, BILL/USD
+2026-06-02 09:15:39,095 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 09:15:39,969 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.3 rr=2.67
+2026-06-02 09:15:40,768 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:15:42,882 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:15:42,882 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:15:42,882 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:20:48,408 [INFO] bot: Active symbols (9/15): WLD/USD, VVV/USD, TON/USD, ICP/USD, JTO/USD, NEAR/USD, ZEC/USD, XLM/USD, BILL/USD
+2026-06-02 09:20:57,834 [INFO] bot: SIGNAL ICP/USD dir=long score=6.9 rr=2.67
+2026-06-02 09:20:58,635 [INFO] bot: SIGNAL JTO/USD dir=long score=6.4 rr=2.67
+2026-06-02 09:20:59,677 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 09:21:02,187 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:21:02,188 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:21:02,188 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:26:07,540 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, VVV/USD, ICP/USD, NEAR/USD, ZEC/USD, JTO/USD, XLM/USD, HYPE/USD
+2026-06-02 09:26:10,551 [INFO] bot: SIGNAL ICP/USD dir=long score=7.7 rr=2.67
+2026-06-02 09:26:11,410 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.5 rr=2.67
+2026-06-02 09:26:13,083 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:26:14,683 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:26:14,683 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:26:14,683 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:31:19,955 [INFO] bot: Active symbols (9/15): WLD/USD, VVV/USD, ICP/USD, TON/USD, NEAR/USD, JTO/USD, ZEC/USD, BILL/USD, XLM/USD
+2026-06-02 09:31:22,187 [INFO] bot: SIGNAL ICP/USD dir=long score=7.5 rr=2.67
+2026-06-02 09:31:24,750 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:31:26,945 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:31:26,945 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:36:32,642 [INFO] bot: Active symbols (9/15): WLD/USD, VVV/USD, TON/USD, ICP/USD, NEAR/USD, JTO/USD, ZEC/USD, BILL/USD, XLM/USD
+2026-06-02 09:36:35,881 [INFO] bot: SIGNAL ICP/USD dir=long score=7.1 rr=2.67
+2026-06-02 09:36:36,951 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.4 rr=2.67
+2026-06-02 09:36:37,984 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:36:40,253 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:36:40,253 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 09:36:40,253 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:41:46,038 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, NEAR/USD, JTO/USD, BILL/USD, ZEC/USD, XLM/USD
+2026-06-02 09:41:49,710 [INFO] bot: SIGNAL ICP/USD dir=long score=8.0 rr=2.67
+2026-06-02 09:41:52,182 [INFO] bot: SIGNAL JTO/USD dir=long score=5.9 rr=2.67
+2026-06-02 09:41:54,326 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:41:54,326 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:46:59,513 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, JTO/USD, NEAR/USD, BILL/USD, ZEC/USD, INJ/USD
+2026-06-02 09:47:02,158 [INFO] bot: SIGNAL ICP/USD dir=long score=8.0 rr=2.67
+2026-06-02 09:47:05,395 [INFO] bot: SIGNAL JTO/USD dir=long score=6.3 rr=2.67
+2026-06-02 09:47:32,705 [INFO] bot: SIGNAL INJ/USD dir=long score=6.8 rr=2.67
+2026-06-02 09:47:32,705 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:47:32,705 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:47:32,705 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 09:52:37,911 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, VVV/USD, ICP/USD, JTO/USD, NEAR/USD, BILL/USD, ZEC/USD, INJ/USD
+2026-06-02 09:52:42,214 [INFO] bot: SIGNAL ICP/USD dir=long score=7.1 rr=2.67
+2026-06-02 09:52:43,022 [INFO] bot: SIGNAL JTO/USD dir=long score=6.2 rr=2.67
+2026-06-02 09:52:46,283 [INFO] bot: SIGNAL INJ/USD dir=long score=6.8 rr=2.67
+2026-06-02 09:52:46,284 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:52:46,284 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:52:46,284 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 09:57:51,580 [INFO] bot: Active symbols (9/15): WLD/USD, ICP/USD, TON/USD, VVV/USD, JTO/USD, BILL/USD, NEAR/USD, ZEC/USD, INJ/USD
+2026-06-02 09:57:53,116 [INFO] bot: SIGNAL ICP/USD dir=long score=7.5 rr=2.67
+2026-06-02 09:57:55,585 [INFO] bot: SIGNAL JTO/USD dir=long score=6.5 rr=2.67
+2026-06-02 09:57:58,476 [INFO] bot: SIGNAL INJ/USD dir=long score=6.8 rr=2.67
+2026-06-02 09:57:58,476 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 09:57:58,476 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 09:57:58,476 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 10:03:03,898 [INFO] bot: Active symbols (9/15): WLD/USD, ICP/USD, TON/USD, VVV/USD, JTO/USD, NEAR/USD, BILL/USD, ZEC/USD, INJ/USD
+2026-06-02 10:03:08,842 [INFO] bot: SIGNAL ICP/USD dir=long score=6.5 rr=2.67
+2026-06-02 10:03:11,333 [INFO] bot: SIGNAL JTO/USD dir=long score=6.6 rr=2.67
+2026-06-02 10:03:12,198 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.7 rr=2.67
+2026-06-02 10:03:13,830 [INFO] bot: SIGNAL ZEC/USD dir=long score=5.7 rr=2.67
+2026-06-02 10:03:14,606 [INFO] bot: SIGNAL INJ/USD dir=long score=6.1 rr=2.67
+2026-06-02 10:03:14,606 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:03:14,606 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:03:14,606 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:03:14,607 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 10:03:14,607 [INFO] bot: Cannot open INJ/USD: max open positions (5) reached
+2026-06-02 10:08:20,271 [INFO] bot: Active symbols (9/15): WLD/USD, ICP/USD, TON/USD, VVV/USD, JTO/USD, NEAR/USD, BILL/USD, ZEC/USD, XLM/USD
+2026-06-02 10:08:21,686 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 10:08:24,170 [INFO] bot: SIGNAL JTO/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:08:25,214 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.7 rr=2.67
+2026-06-02 10:08:26,547 [INFO] bot: SIGNAL ZEC/USD dir=long score=5.7 rr=2.67
+2026-06-02 10:08:27,412 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:08:27,412 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:08:27,412 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:08:27,412 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 10:08:27,882 [INFO] risk_manager: Trailing stop raised for ICP/USD → 3.014200
+2026-06-02 10:13:32,878 [INFO] bot: Active symbols (9/15): WLD/USD, ICP/USD, TON/USD, VVV/USD, JTO/USD, BILL/USD, NEAR/USD, ZEC/USD, HYPE/USD
+2026-06-02 10:13:34,467 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 10:13:36,988 [INFO] bot: SIGNAL JTO/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:13:38,296 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.2 rr=2.67
+2026-06-02 10:13:39,064 [INFO] bot: SIGNAL ZEC/USD dir=long score=5.7 rr=2.67
+2026-06-02 10:13:39,888 [INFO] bot: SIGNAL HYPE/USD dir=long score=5.7 rr=2.67
+2026-06-02 10:13:39,888 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:13:39,888 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:13:39,888 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:13:39,888 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 10:13:39,888 [INFO] bot: Cannot open HYPE/USD: max open positions (5) reached
+2026-06-02 10:18:45,177 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, JTO/USD, NEAR/USD, BILL/USD, XLM/USD, ZEC/USD
+2026-06-02 10:18:47,388 [INFO] bot: SIGNAL ICP/USD dir=long score=6.9 rr=2.67
+2026-06-02 10:18:48,969 [INFO] bot: SIGNAL JTO/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:18:49,751 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.2 rr=2.67
+2026-06-02 10:18:52,041 [INFO] bot: SIGNAL ZEC/USD dir=long score=5.8 rr=2.67
+2026-06-02 10:18:52,041 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:18:52,041 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:18:52,041 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:18:52,041 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 10:23:57,340 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, JTO/USD, VVV/USD, ICP/USD, BILL/USD, NEAR/USD, XLM/USD, ZEC/USD
+2026-06-02 10:24:01,610 [INFO] bot: SIGNAL JTO/USD dir=long score=6.9 rr=2.67
+2026-06-02 10:24:03,081 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:24:04,523 [INFO] bot: SIGNAL NEAR/USD dir=long score=5.9 rr=2.67
+2026-06-02 10:24:06,267 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:24:06,267 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:24:06,267 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:29:11,792 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, JTO/USD, VVV/USD, ICP/USD, XLM/USD, BILL/USD, ZEC/USD, NEAR/USD
+2026-06-02 10:29:14,466 [INFO] bot: SIGNAL JTO/USD dir=long score=6.9 rr=2.67
+2026-06-02 10:29:15,825 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:29:18,915 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:29:18,915 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:34:24,403 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, XLM/USD, VVV/USD, JTO/USD, ZEC/USD, BILL/USD, NEAR/USD
+2026-06-02 10:34:26,591 [INFO] bot: SIGNAL ICP/USD dir=long score=6.7 rr=2.67
+2026-06-02 10:34:28,977 [INFO] bot: SIGNAL JTO/USD dir=long score=6.4 rr=2.67
+2026-06-02 10:34:29,757 [INFO] bot: SIGNAL ZEC/USD dir=long score=6.6 rr=2.67
+2026-06-02 10:34:31,136 [INFO] bot: SIGNAL NEAR/USD dir=long score=5.7 rr=2.67
+2026-06-02 10:34:31,136 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:34:31,136 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:34:31,136 [INFO] bot: Cannot open ZEC/USD: max open positions (5) reached
+2026-06-02 10:34:31,136 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:39:36,175 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, XLM/USD, BILL/USD, NEAR/USD, JTO/USD, ZEC/USD
+2026-06-02 10:39:38,601 [INFO] bot: SIGNAL ICP/USD dir=long score=6.4 rr=2.67
+2026-06-02 10:39:41,871 [INFO] bot: SIGNAL NEAR/USD dir=long score=5.9 rr=2.67
+2026-06-02 10:39:42,712 [INFO] bot: SIGNAL JTO/USD dir=long score=6.2 rr=2.67
+2026-06-02 10:39:43,528 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:39:43,528 [INFO] bot: Cannot open NEAR/USD: already have open position in NEAR/USD
+2026-06-02 10:39:43,528 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 10:39:43,969 [INFO] risk_manager: Position closed: JTO/USD @ 0.601600  Reason=stop_loss  PnL=-11.5274 USDT  Capital=929.60
+2026-06-02 10:39:43,969 [INFO] market_data: [DRY RUN] MARKET SELL JTO/USD 301.764063 @ market
+2026-06-02 10:39:44,551 [INFO] bot: TRADE CLOSED: JTO/USD @ 0.601600  Reason=stop_loss  PnL=-11.5274
+2026-06-02 10:43:40,302 [INFO] universe: Universe refresh starting — scanning all Coinbase USD pairs…
+2026-06-02 10:43:40,530 [INFO] universe: Top 40 candidates by 24h volume+momentum: ['NEAR/USD', 'ICP/USD', 'WLD/USD', 'JTO/USD', 'ZEC/USD', 'RENDER/USD', 'ONDO/USD', 'HYPE/USD', 'TON/USD', 'INJ/USD']
+2026-06-02 10:43:53,891 [INFO] universe: Universe refreshed → 15 symbols | added=['USD1/USD'] | removed=['BILL/USD']
+2026-06-02 10:44:49,736 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, XLM/USD, VVV/USD, JTO/USD, NEAR/USD, BTC/USD, ZEC/USD
+2026-06-02 10:44:53,347 [INFO] bot: SIGNAL ICP/USD dir=long score=6.8 rr=2.67
+2026-06-02 10:44:55,978 [INFO] bot: SIGNAL JTO/USD dir=long score=6.2 rr=2.67
+2026-06-02 10:44:58,632 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:44:58,632 [INFO] market_data: [DRY RUN] MARKET BUY JTO/USD 310.330703 @ market
+2026-06-02 10:44:58,632 [INFO] risk_manager: Position opened: LONG JTO/USD @ 0.599100  SL=0.560214  TP=0.702796  qty=310.330703
+2026-06-02 10:44:59,116 [INFO] bot: TRADE OPENED: LONG JTO/USD score=6.2  entry=0.599100  SL=0.560214  TP=0.702796  qty=310.330703
+2026-06-02 10:50:04,540 [INFO] bot: Active symbols (9/15): WLD/USD, TON/USD, ICP/USD, VVV/USD, XLM/USD, JTO/USD, ZEC/USD, NEAR/USD, BTC/USD
+2026-06-02 10:50:06,892 [INFO] bot: SIGNAL ICP/USD dir=long score=6.6 rr=2.67
+2026-06-02 10:50:09,358 [INFO] bot: SIGNAL JTO/USD dir=long score=6.5 rr=2.67
+2026-06-02 10:50:11,758 [INFO] bot: Cannot open ICP/USD: already have open position in ICP/USD
+2026-06-02 10:50:11,758 [INFO] bot: Cannot open JTO/USD: already have open position in JTO/USD
+2026-06-02 11:08:04,793 [INFO] bot: Starting trading bot  |  exchange=coinbase  testnet=False  dry_run=True
+2026-06-02 11:08:04,793 [INFO] dashboard: Dashboard running at http://localhost:8081
+2026-06-02 11:08:04,793 [INFO] universe: Universe refresh starting — scanning all Coinbase USD pairs…
+2026-06-02 11:08:04,793 [INFO] universe: Dynamic universe manager started (refresh every 1h)
+2026-06-02 11:08:04,797 [INFO] bot: Dashboard live at http://localhost:8081
+2026-06-02 11:08:04,797 [INFO] bot: Dynamic universe active — refreshes every 1h, currently 13 symbols
+2026-06-02 11:08:06,623 [INFO] universe: Top 40 candidates by 24h volume+momentum: ['NEAR/USD', 'ZEC/USD', 'HYPE/USD', 'ETH/USD', 'BTC/USD', 'SOL/USD', 'XRP/USD', 'XLM/USD']
+2026-06-02 11:08:10,868 [INFO] universe: BTC macro regime: bear
+2026-06-02 11:08:10,869 [WARNING] universe: BTC is in BEAR regime — universe restricted to BTC/ETH/SOL only
+2026-06-02 11:08:10,869 [WARNING] universe: Universe refresh returned too few coins — keeping previous list
+2026-06-02 11:08:11,068 [INFO] bot: Active symbols (7/13): ATOM/USD, AAVE/USD, XRP/USD, BTC/USD, NEAR/USD, ADA/USD, DOT/USD
+2026-06-02 11:08:17,504 [INFO] bot: SIGNAL NEAR/USD dir=long score=6.2 rr=2.00
+2026-06-02 11:08:19,323 [INFO] market_data: [DRY RUN] MARKET BUY NEAR/USD 77.130737 @ market
+2026-06-02 11:08:19,323 [INFO] risk_manager: Position opened: LONG NEAR/USD @ 2.593000  SL=2.475966  TP=2.827068  qty=77.130737
+2026-06-02 11:08:19,828 [INFO] bot: TRADE OPENED: LONG NEAR/USD score=6.2  entry=2.593000  SL=2.475966  TP=2.827068  qty=77.130737
+2026-06-02 11:13:24,186 [INFO] bot: Active symbols (7/13): ATOM/USD, AAVE/USD, XRP/USD, BTC/USD, ADA/USD, UNI/USD, DOT/USD
+2026-06-02 11:18:34,067 [INFO] bot: Active symbols (7/13): ATOM/USD, AAVE/USD, XRP/USD, BTC/USD, ADA/USD, DOT/USD, UNI/USD
+2026-06-02 11:23:43,668 [INFO] bot: Active symbols (7/13): ATOM/USD, AAVE/USD, XRP/USD, BTC/USD, ADA/USD, DOT/USD, UNI/USD
+2026-06-02 11:28:54,978 [INFO] bot: Active symbols (7/13): ATOM/USD, AAVE/USD, XRP/USD, BTC/USD, ADA/USD, UNI/USD, DOT/USD

@@ -47,7 +47,7 @@ class RiskManager:
 
     def _restore_positions(self) -> None:
         """Reload any open positions saved before a restart."""
-        import position_store
+        import risk.position_store as position_store
         data = position_store.load()
         for sym, d in data.items():
             try:
@@ -124,7 +124,7 @@ class RiskManager:
         self.positions[symbol] = pos
         logger.info("Position opened: %s %s @ %.6f  SL=%.6f  TP=%.6f  qty=%.6f",
                     side.upper(), symbol, entry, stop, take_profit, qty)
-        import position_store; position_store.save(self.positions)
+        import risk.position_store as position_store; position_store.save(self.positions)
         return pos
 
     def update_position(self, symbol: str, current_price: float) -> dict:
@@ -187,7 +187,7 @@ class RiskManager:
         self._total_capital += pnl   # update running capital
         logger.info("Position closed: %s @ %.6f  Reason=%s  PnL=%.4f USDT  Capital=%.2f",
                     symbol, exit_price, reason, pnl, self._total_capital)
-        import position_store; position_store.save(self.positions)
+        import risk.position_store as position_store; position_store.save(self.positions)
         return pnl
 
     # ── Summary ───────────────────────────────────────────────────────────────

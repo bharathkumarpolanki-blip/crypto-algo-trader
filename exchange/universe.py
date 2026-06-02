@@ -18,7 +18,7 @@ import pandas as pd
 import ccxt
 
 import config
-from market_data import get_exchange, fetch_ohlcv
+from exchange.market_data import get_exchange, fetch_ohlcv
 
 logger = logging.getLogger(__name__)
 

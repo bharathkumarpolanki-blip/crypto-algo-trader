@@ -16,7 +16,7 @@ import logging
 from flask import Flask, jsonify, request, render_template_string
 from flask_cors import CORS
 
-import state as st
+import ui.state as st
 
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
@@ -93,8 +93,8 @@ def api_candles(symbol):
         return jsonify(cached["data"])
 
     try:
-        from market_data import fetch_ohlcv
-        from indicators import (add_emas, add_rsi, add_macd, add_bollinger,
+        from exchange.market_data import fetch_ohlcv
+        from core.indicators import (add_emas, add_rsi, add_macd, add_bollinger,
                                  add_atr, add_volume_indicators, add_adx)
         import numpy as np
 
@@ -191,9 +191,9 @@ def api_universe():
 @app.route("/api/universe/refresh", methods=["POST"])
 def api_universe_refresh():
     def _run():
-        import universe as u
+        import exchange.universe as u
         u.refresh_universe(force=True)
-        import state as _st
+        import ui.state as _st
         _st.set_universe(u.get_watchlist(), u.get_refresh_log())
     threading.Thread(target=_run, daemon=True, name="universe-force-refresh").start()
     return jsonify({"status": "refreshing"})
@@ -217,6 +217,8 @@ def api_backtest_run():
         return jsonify({"error": "backtest already running"}), 409
 
     def _run():
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))  # ensure root on path
         import config as _cfg
         from backtest import run_backtest
 
@@ -225,7 +227,7 @@ def api_backtest_run():
             target = symbols
         else:
             try:
-                import universe as _u
+                import exchange.universe as _u
                 target = _u.get_watchlist()
             except Exception:
                 target = _cfg.WATCHLIST
