@@ -22,9 +22,9 @@ from tabulate import tabulate
 from colorama import Fore, Style, init as colorama_init
 
 import config
-from market_data import fetch_ohlcv
-from indicators import enrich
-from strategies import analyse, trend_direction_4h
+from exchange.market_data import fetch_ohlcv
+from core.indicators import enrich
+from core.strategies import analyse, trend_direction_4h
 
 colorama_init(autoreset=True)
 logging.basicConfig(level=logging.WARNING)
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     if args.multi:
         # Use dynamic universe if bot has been run at least once, else fall back to config.WATCHLIST
         try:
-            import universe
+            import exchange.universe as universe
             symbols_to_test = universe.get_watchlist()
             print(f"Using dynamic universe ({len(symbols_to_test)} symbols): {', '.join(symbols_to_test)}")
         except Exception:

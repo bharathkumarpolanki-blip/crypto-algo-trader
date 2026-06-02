@@ -25,17 +25,17 @@ from tabulate import tabulate
 from colorama import Fore, Style, init as colorama_init
 
 import config
-import state as st
-import universe
-from market_data import fetch_ohlcv, fetch_ticker, place_order
-from indicators import enrich
-from strategies import analyse, SignalResult
-from risk_manager import RiskManager
-from notifier import (notify_signal, notify_trade,
+import ui.state as st
+import exchange.universe as universe
+from exchange.market_data import fetch_ohlcv, fetch_ticker, place_order
+from core.indicators import enrich
+from core.strategies import analyse, SignalResult
+from risk.risk_manager import RiskManager
+from notifications.notifier import (notify_signal, notify_trade,
                        notify_trade_open, notify_trade_close,
                        notify_bot_started, notify_bot_stopped,
                        notify_portfolio_summary, notify_error)
-from dashboard import start_server, is_paused
+from ui.dashboard import start_server, is_paused
 
 colorama_init(autoreset=True)
 logging.basicConfig(

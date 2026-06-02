@@ -21,8 +21,8 @@ import pandas as pd
 from dataclasses import dataclass, field
 
 import config
-from sentiment import get_sentiment
-from candle_patterns import score_candle_patterns, active_patterns
+from data.sentiment import get_sentiment
+from core.candle_patterns import score_candle_patterns, active_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -361,7 +361,7 @@ def score_ichimoku(df: pd.DataFrame) -> float:
 
 def score_support_bounce(df: pd.DataFrame) -> float:
     """Price bounced from a pivot support level."""
-    from indicators import find_pivot_levels
+    from core.indicators import find_pivot_levels
     try:
         _, lows = find_pivot_levels(df)
         if not lows:
