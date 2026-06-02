@@ -43,6 +43,28 @@ class RiskManager:
     def __init__(self):
         self.positions: dict[str, Position] = {}   # symbol → Position
         self._total_capital = config.TOTAL_CAPITAL_USDT
+        self._restore_positions()   # reload from disk on startup
+
+    def _restore_positions(self) -> None:
+        """Reload any open positions saved before a restart."""
+        import position_store
+        data = position_store.load()
+        for sym, d in data.items():
+            try:
+                opened_at = datetime.fromisoformat(d["opened_at"])
+            except Exception:
+                opened_at = datetime.now(timezone.utc)
+            pos = Position(
+                symbol=d["symbol"], side=d["side"],
+                entry_price=d["entry_price"], qty=d["qty"],
+                stop_loss=d["stop_loss"], take_profit=d["take_profit"],
+                atr_at_entry=d["atr_at_entry"], order_id=d.get("order_id",""),
+                opened_at=opened_at,
+                highest_price=d.get("highest_price", d["entry_price"]),
+                lowest_price=d.get("lowest_price",  d["entry_price"]),
+            )
+            self.positions[sym] = pos
+            logger.info("Restored position: %s %s @ %.6f", d["side"].upper(), sym, d["entry_price"])
 
     # ── Sizing ────────────────────────────────────────────────────────────────
 
@@ -102,6 +124,7 @@ class RiskManager:
         self.positions[symbol] = pos
         logger.info("Position opened: %s %s @ %.6f  SL=%.6f  TP=%.6f  qty=%.6f",
                     side.upper(), symbol, entry, stop, take_profit, qty)
+        import position_store; position_store.save(self.positions)
         return pos
 
     def update_position(self, symbol: str, current_price: float) -> dict:
@@ -164,6 +187,7 @@ class RiskManager:
         self._total_capital += pnl   # update running capital
         logger.info("Position closed: %s @ %.6f  Reason=%s  PnL=%.4f USDT  Capital=%.2f",
                     symbol, exit_price, reason, pnl, self._total_capital)
+        import position_store; position_store.save(self.positions)
         return pnl
 
     # ── Summary ───────────────────────────────────────────────────────────────

@@ -25,18 +25,23 @@ logger = logging.getLogger(__name__)
 # ── Parameters ────────────────────────────────────────────────────────────────
 
 REFRESH_INTERVAL_HOURS = 1      # re-rank the universe every hour
-TOP_N_COINS            = 15     # max symbols in the active watchlist
-MIN_VOLUME_USD         = 5_000_000   # minimum 24h volume to be considered
-MIN_PRICE_USD          = 0.001       # filter out dust/dead coins
+TOP_N_COINS            = 12     # reduced from 15 — focus on quality
+MIN_VOLUME_USD         = 25_000_000  # raised from 5M — only liquid coins
+MIN_PRICE_USD          = 0.01        # raised from 0.001 — no dust coins
+MIN_MARKET_CAP_RANK    = 150         # only top-150 market cap coins (approx by volume)
 
 # Coins to always keep regardless of ranking (anchors)
 ANCHOR_SYMBOLS = {"BTC/USD", "ETH/USD", "SOL/USD"}
 
-# Coins permanently blacklisted (stablecoins, wrapped tokens, LP tokens)
+# Coins permanently blacklisted
 BLACKLIST = {
+    # Stablecoins
     "USDT/USD", "USDC/USD", "BUSD/USD", "DAI/USD", "TUSD/USD",
+    "EURC/USD", "PYUSD/USD", "USDS/USD", "USD1/USD", "FDUSD/USD",
+    # Wrapped / LST tokens
     "WBTC/USD", "CBETH/USD", "WETH/USD", "STETH/USD",
-    "USDT/USD", "EURC/USD", "PYUSD/USD",
+    # Micro-cap / high-risk tokens from the bad run
+    "BILL/USD", "VVV/USD", "STG/USD",
 }
 
 # ── Shared state ──────────────────────────────────────────────────────────────
@@ -115,6 +120,32 @@ def _compute_7d_roc(sym: str) -> float:
         return 0.0
 
 
+def _btc_regime() -> str:
+    """
+    Quick BTC macro regime check.
+    Returns 'bull', 'bear', or 'neutral' based on 6h EMA + price action.
+    Bear = don't touch altcoins. Bull/neutral = full universe active.
+    """
+    try:
+        df = fetch_ohlcv("BTC/USD", "6h", limit=60)
+        if df.empty or len(df) < 50:
+            return "neutral"
+        close  = df["close"].iloc[-1]
+        ema21  = df["close"].ewm(span=21, adjust=False).mean().iloc[-1]
+        ema50  = df["close"].ewm(span=50, adjust=False).mean().iloc[-1]
+        roc_7d = (close - df["close"].iloc[-28]) / df["close"].iloc[-28] * 100
+        # Bear: price below both EMAs AND declining 7-day
+        if close < ema21 and close < ema50 and roc_7d < -3:
+            return "bear"
+        # Bull: price above both EMAs AND positive 7-day
+        if close > ema21 and close > ema50 and roc_7d > 2:
+            return "bull"
+        return "neutral"
+    except Exception as e:
+        logger.debug("BTC regime check failed: %s", e)
+        return "neutral"
+
+
 def refresh_universe(force: bool = False) -> list[str]:
     """
     Re-score all Coinbase USD pairs and update the active watchlist.
@@ -166,17 +197,24 @@ def refresh_universe(force: bool = False) -> list[str]:
 
     roc_scores.sort(reverse=True)
 
-    # Step 4: Always include anchors; fill remaining slots from ranked list
+    # Step 4: Check BTC macro regime — if BTC is bearish, only trade anchors
+    btc_regime = _btc_regime()
+    logger.info("BTC macro regime: %s", btc_regime)
+
     new_watchlist: list[str] = []
     for sym in ANCHOR_SYMBOLS:
         if sym in tickers:
             new_watchlist.append(sym)
 
-    for _, sym in roc_scores:
-        if sym not in new_watchlist:
-            new_watchlist.append(sym)
-        if len(new_watchlist) >= TOP_N_COINS:
-            break
+    if btc_regime == "bear":
+        logger.warning("BTC is in BEAR regime — universe restricted to BTC/ETH/SOL only")
+        # In bear market only trade the 3 most liquid anchors
+    else:
+        for _, sym in roc_scores:
+            if sym not in new_watchlist:
+                new_watchlist.append(sym)
+            if len(new_watchlist) >= TOP_N_COINS:
+                break
 
     # Fallback: if we got fewer than 5, keep previous watchlist
     if len(new_watchlist) < 5:
