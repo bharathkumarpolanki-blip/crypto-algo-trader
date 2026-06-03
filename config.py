@@ -81,6 +81,7 @@ SENTIMENT_WEIGHT    = 1.0      # how much sentiment contributes to signal score
 # ── Machine Learning (FreqAI-inspired, own implementation) ────────────────────
 ML_ENABLED          = True     # master switch for ML features
 ML_WEIGHT           = 1.0      # how much the ML signal contributes to the score
+EXTREMA_WEIGHT      = 1.0      # weight of the extrema (top/bottom) predictor
 ML_USE_REGIME       = True     # use ML regime classifier instead of EMA rules
 ML_SCALE_POSITIONS  = True     # scale position size by ML confidence
 ML_MIN_CONFIDENCE   = 0.60     # below this, ML adds no directional weight

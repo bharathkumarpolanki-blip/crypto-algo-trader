@@ -100,8 +100,10 @@ def _train_ml_models(symbols: list[str]) -> None:
         try:
             from ml.signal_predictor import get_predictor
             from ml.regime_classifier import get_regime_classifier
-            predictor = get_predictor()
+            from ml.extrema_predictor import get_extrema_predictor
+            predictor  = get_predictor()
             regime_clf = get_regime_classifier()
+            extrema    = get_extrema_predictor()
 
             regime_trained = False
             for sym in symbols:
@@ -111,8 +113,9 @@ def _train_ml_models(symbols: list[str]) -> None:
                         continue
                     df = enrich(df)
 
-                    # Train per-symbol signal predictor
+                    # Train per-symbol signal predictor + extrema predictor
                     predictor.train(sym, df)
+                    extrema.train(sym, df)
 
                     # Train the regime classifier once (on BTC — the market leader)
                     if not regime_trained and sym == "BTC/USD":

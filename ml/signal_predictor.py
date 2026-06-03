@@ -355,7 +355,7 @@ class SignalPredictor:
     # ── Persistence ───────────────────────────────────────────────────────────
 
     def _save(self, symbol: str) -> None:
-        path = os.path.join(MODEL_DIR, f"{symbol.replace('/','_')}.pkl")
+        path = os.path.join(MODEL_DIR, f"signal_{symbol.replace('/','_')}.pkl")
         with self._lock:
             sym_model = self._models.get(symbol)
         if sym_model is None:
@@ -367,14 +367,16 @@ class SignalPredictor:
             logger.warning("Could not save ML model for %s: %s", symbol, e)
 
     def _load_all(self) -> None:
-        """Load all saved models from disk on startup."""
+        """Load saved signal-predictor models from disk on startup."""
         if not os.path.exists(MODEL_DIR):
             return
         for fname in os.listdir(MODEL_DIR):
-            if not fname.endswith(".pkl") or fname == "scaler.pkl":
+            # Only load our own signal_ files — ignore extrema_/regime_/scaler
+            if not fname.startswith("signal_") or not fname.endswith(".pkl"):
                 continue
             try:
-                symbol = fname.replace(".pkl", "").replace("_", "/", 1)
+                # "signal_BTC_USD.pkl" → "BTC/USD"
+                symbol = fname.replace("signal_", "").replace(".pkl", "").replace("_", "/", 1)
                 path   = os.path.join(MODEL_DIR, fname)
                 with open(path, "rb") as f:
                     sym_model = pickle.load(f)
