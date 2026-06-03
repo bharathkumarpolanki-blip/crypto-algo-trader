@@ -543,7 +543,20 @@ tr:hover td { background: #1c2129; }
 .bt-stat .v { font-size: 18px; font-weight: 700; }
 
 .last-update { font-size: 11px; color: var(--muted); }
-.table-scroll { overflow-x: auto; }
+
+/* ── Scrollable table containers ── */
+.table-scroll { overflow-x: auto; overflow-y: auto; max-height: 460px; }
+.table-scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--bg2); }
+
+/* ── Custom visible scrollbars (dark theme) ── */
+* { scrollbar-width: thin; scrollbar-color: #484f58 var(--bg2); }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg2); border-radius: 6px; }
+::-webkit-scrollbar-thumb {
+  background: #484f58; border-radius: 6px; border: 2px solid var(--bg2);
+}
+::-webkit-scrollbar-thumb:hover { background: #5b626b; }
+::-webkit-scrollbar-corner { background: var(--bg2); }
 
 /* ── Symbol detail drawer ── */
 .drawer-overlay { position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;backdrop-filter:blur(2px); }
@@ -591,6 +604,7 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
   </div>
 </header>
 
+<div id="authBanner" style="display:none;padding:10px 24px;font-size:13px;font-weight:600;text-align:center"></div>
 <div class="ticker-bar" id="tickerBar">Loading…</div>
 
 <!-- ═══════════════════ SYMBOL DETAIL DRAWER ════════════════════════════════ -->
@@ -961,6 +975,19 @@ function updateStatus(data) {
   btn.textContent=botPaused?'Resume':'Pause';
   btn.className=botPaused?'btn btn-success':'btn btn-danger';
   document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
+
+  // API-key auth banner
+  const banner = document.getElementById('authBanner');
+  if (data.auth_ok === false) {
+    banner.style.display = 'block';
+    banner.style.background = 'rgba(248,81,73,.15)';
+    banner.style.color = 'var(--red)';
+    banner.style.borderBottom = '1px solid var(--red)';
+    banner.innerHTML = '⚠️ API key not working — paper trading is fine, but fix the key before going live. '
+      + '<span style="font-weight:400;color:var(--muted)">' + (data.auth_msg||'') + '</span>';
+  } else if (data.auth_ok === true) {
+    banner.style.display = 'none';
+  }
 }
 function updateStats(data) {
   const cap=data.capital_usdt||0, start=data.capital_start||cap;

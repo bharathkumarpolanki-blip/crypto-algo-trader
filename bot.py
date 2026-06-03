@@ -28,7 +28,7 @@ from colorama import Fore, Style, init as colorama_init
 import config
 import ui.state as st
 import exchange.universe as universe
-from exchange.market_data import fetch_ohlcv, fetch_ticker, place_order
+from exchange.market_data import fetch_ohlcv, fetch_ticker, place_order, check_auth
 from core.indicators import enrich
 from core.strategies import analyse, SignalResult
 from risk.risk_manager import RiskManager
@@ -343,6 +343,42 @@ def print_terminal(signals: list[SignalResult]) -> None:
 def run() -> None:
     logger.info("Starting trading bot  |  exchange=%s  testnet=%s  dry_run=%s",
                 config.EXCHANGE, config.TESTNET, config.DRY_RUN)
+
+    # ── API key health check ──────────────────────────────────────────────────
+    auth_ok, auth_msg = check_auth()
+    try:
+        st.set_auth_status(auth_ok, auth_msg)
+    except Exception:
+        pass
+    if auth_ok:
+        logger.info("✅ API key check: %s", auth_msg)
+    else:
+        banner = "═" * 68
+        if config.DRY_RUN:
+            # Paper trading — auth not required, just inform
+            logger.warning("%s", banner)
+            logger.warning("⚠️  API KEY NOT WORKING — but you are in DRY_RUN (paper) mode.")
+            logger.warning("    Reason: %s", auth_msg)
+            logger.warning("    Paper trading works fine. Fix the key BEFORE going live.")
+            logger.warning("%s", banner)
+            try:
+                notify_error(f"⚠️ API key not working ({auth_msg[:80]}). "
+                             f"OK for paper trading — fix before going live.")
+            except Exception:
+                pass
+        else:
+            # LIVE mode with a broken key — refuse to start, this is dangerous
+            logger.error("%s", banner)
+            logger.error("🛑 LIVE MODE but API KEY IS NOT WORKING — refusing to start.")
+            logger.error("    Reason: %s", auth_msg)
+            logger.error("    Real orders would fail. Fix the key or set DRY_RUN=True.")
+            logger.error("    Get a new key: coinbase.com → Settings → API (View + Trade).")
+            logger.error("%s", banner)
+            try:
+                notify_error(f"🛑 LIVE mode aborted — API key not working: {auth_msg[:80]}")
+            except Exception:
+                pass
+            return   # do not start live trading with a broken key
 
     # Boot web dashboard in background thread
     start_server(port=8081)

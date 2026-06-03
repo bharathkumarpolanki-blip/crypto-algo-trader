@@ -174,6 +174,28 @@ def get_balance() -> dict:
         return {}
 
 
+def check_auth() -> tuple[bool, str]:
+    """
+    Test whether the authenticated API key actually works by calling a
+    private endpoint (fetch_balance). Returns (ok, message).
+
+    ok=True  → key is valid, trading will work
+    ok=False → key is missing/invalid; live trading would fail (paper trading is fine)
+    """
+    if not config.API_KEY or not config.API_SECRET:
+        return False, "No API key configured (.env API_KEY / API_SECRET empty)"
+    try:
+        ex = get_exchange()
+        ex.fetch_balance()   # private call — fails with 401 if key is bad
+        return True, "API key valid — authenticated trading available"
+    except ccxt.AuthenticationError as e:
+        return False, f"Authentication failed (401) — key invalid/expired/missing Trade permission: {e}"
+    except ccxt.PermissionDenied as e:
+        return False, f"Permission denied — key lacks Trade permission or IP not allowlisted: {e}"
+    except Exception as e:
+        return False, f"Auth check failed: {e}"
+
+
 def get_quote_balance() -> float:
     """Return available quote-currency balance (USD on Coinbase, USDT elsewhere)."""
     quote = getattr(config, "QUOTE_CURRENCY", "USDT")

@@ -51,6 +51,9 @@ _state: dict[str, Any] = {
     # ── ML state ──────────────────────────────────────────────────────────────
     "ml_training":       {"active": False, "progress": ""},
     "tuner":             {"active": False, "progress": "", "result": None},
+    # ── Auth health ───────────────────────────────────────────────────────────
+    "auth_ok":           None,           # None = unchecked, True/False after check
+    "auth_msg":          "",
 }
 
 
@@ -167,6 +170,14 @@ def set_tuner(active: bool, progress: str = "", result: dict | None = None) -> N
 def get_tuner() -> dict:
     with _lock:
         return dict(_state["tuner"])
+
+
+# ── Auth health state ─────────────────────────────────────────────────────────
+
+def set_auth_status(ok: bool, msg: str) -> None:
+    with _lock:
+        _state["auth_ok"]  = ok
+        _state["auth_msg"] = msg
 
 
 def get_backtest() -> dict:
