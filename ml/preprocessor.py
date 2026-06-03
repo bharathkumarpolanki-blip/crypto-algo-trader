@@ -193,7 +193,13 @@ class Preprocessor:
         if self.scaler is None:
             return None
         try:
-            X = feature_df.fillna(0.0).replace([np.inf, -np.inf], 0.0).astype(np.float32)
+            # .to_numpy() strips the pandas column names — the scaler was fitted
+            # on a nameless array, so passing names would trigger a sklearn
+            # "X has feature names, but StandardScaler was fitted without..." warning.
+            X = (feature_df.fillna(0.0)
+                          .replace([np.inf, -np.inf], 0.0)
+                          .astype(np.float32)
+                          .to_numpy())
             X_scaled = self.scaler.transform(X).astype(np.float32)
             # Clip scaled values to ±10 sigma — a single extreme live feature
             # must not be allowed to dominate distance / model calculations.
