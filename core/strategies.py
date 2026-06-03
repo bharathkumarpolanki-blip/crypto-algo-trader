@@ -27,6 +27,45 @@ from core.candle_patterns import score_candle_patterns, active_patterns
 logger = logging.getLogger(__name__)
 
 
+# ── ML helpers (lazy imports — gracefully degrade if ML not ready) ─────────────
+
+def _get_ml_score(symbol: str, df: pd.DataFrame) -> tuple[float, dict]:
+    """
+    Get ML prediction score for the current candle.
+    Returns (score in [-2, +2], detail_dict).
+    Degrades gracefully to (0.0, {}) if model not trained yet.
+    """
+    try:
+        from ml.signal_predictor import get_predictor
+        pred = get_predictor().predict(symbol, df)
+        if not pred.reliable:
+            return 0.0, {"ml_reliable": False}
+        return pred.score, {
+            "ml_direction":    pred.direction,
+            "ml_confidence":   pred.confidence,
+            "ml_expected_ret": pred.expected_return,
+            "ml_reliable":     True,
+        }
+    except Exception:
+        return 0.0, {}
+
+
+def _get_ml_regime(df: pd.DataFrame) -> str:
+    """
+    ML-based market regime: 'bull' | 'bear' | 'sideways' | 'neutral'.
+    Replaces hard-coded EMA slope rules with a trained classifier.
+    Falls back to 'neutral' if not trained.
+    """
+    try:
+        from ml.regime_classifier import get_regime_classifier
+        result = get_regime_classifier().predict(df)
+        if result.reliable and result.confidence > 0.55:
+            return result.regime
+        return "neutral"
+    except Exception:
+        return "neutral"
+
+
 @dataclass
 class SignalResult:
     symbol: str
@@ -42,6 +81,8 @@ class SignalResult:
     atr: float            = 0.0
     note: str             = ""
     candle_patterns: dict = field(default_factory=dict)  # active pattern detail
+    ml_prediction: dict   = field(default_factory=dict)  # ML signal predictor output
+    ml_confidence: float  = 0.5                          # 0-1, used to scale position size
 
 
 def _last(series: pd.Series, n: int = 1):
@@ -406,7 +447,7 @@ def score_market_regime(df: pd.DataFrame) -> float:
 
 # ── Main scoring function ─────────────────────────────────────────────────────
 
-_MAX_RAW_SCORE = 25.0   # +3 for candle patterns component
+_MAX_RAW_SCORE = 27.0   # +2 for ML signal component (ml_score ±2 × ML_WEIGHT 1.0)
 
 
 def analyse(symbol: str,
@@ -459,6 +500,13 @@ def analyse(symbol: str,
     cp_score, cp_detail = score_candle_patterns(df_primary)
     components["candle_patterns"] = _safe(cp_score)
     result.candle_patterns = cp_detail
+
+    # ── ML signal prediction (15th component) ─────────────────────────────────
+    # LightGBM model predicts expected return; degrades to 0 if not trained yet.
+    ml_score, ml_detail = _get_ml_score(symbol, df_primary)
+    components["ml_signal"] = _safe(ml_score * config.ML_WEIGHT)
+    result.ml_prediction   = ml_detail
+    result.ml_confidence   = ml_detail.get("ml_confidence", 0.5)
 
     # 4h trend contributes a weighted directional bonus
     if df_trend is not None and len(df_trend) >= 60:

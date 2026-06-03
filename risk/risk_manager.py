@@ -68,10 +68,16 @@ class RiskManager:
 
     # ── Sizing ────────────────────────────────────────────────────────────────
 
-    def position_size_usdt(self, entry: float, stop: float, score: float) -> float:
+    def position_size_usdt(self, entry: float, stop: float, score: float,
+                           ml_confidence: float = 0.5) -> float:
         """
         Return USDT amount to deploy.
-        Scales between 1× and 1.5× based on signal strength.
+        Scales by signal strength AND ML prediction confidence.
+
+        ml_confidence (0-1):
+          0.50 = no ML opinion → no adjustment
+          0.80 = strong ML agreement → boost size
+          Inspired by FreqAI's do_predict confidence concept.
         """
         risk_usdt = self._total_capital * (config.RISK_PER_TRADE_PCT / 100)
         risk_per_unit = abs(entry - stop)
@@ -86,6 +92,16 @@ class RiskManager:
             multiplier = 1.5
         elif score >= config.MIN_SIGNAL_SCORE + 1:
             multiplier = 1.25
+
+        # ── ML confidence scaling ──────────────────────────────────────────────
+        # Confidence above 0.5 boosts, below 0.5 trims. Range: 0.7× – 1.3×
+        if getattr(config, "ML_SCALE_POSITIONS", False):
+            # Map confidence [0.5, 1.0] → multiplier [1.0, 1.3]
+            #            and [0.0, 0.5] → multiplier [0.7, 1.0]
+            ml_mult = 0.7 + (ml_confidence * 0.6)   # 0.5→1.0, 1.0→1.3, 0.0→0.7
+            ml_mult = max(0.7, min(1.3, ml_mult))
+            multiplier *= ml_mult
+
         position_value *= multiplier
 
         # hard cap: single position ≤ 20% of capital

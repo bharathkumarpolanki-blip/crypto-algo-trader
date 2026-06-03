@@ -17,6 +17,7 @@ Web dashboard runs at http://localhost:8081
 """
 
 import time
+import threading
 import logging
 import os
 from datetime import datetime, timezone
@@ -82,7 +83,62 @@ def _signal_to_dict(sig: SignalResult) -> dict:
         "components":      sig.components,
         "atr":             sig.atr,
         "candle_patterns": sig.candle_patterns,
+        "ml_prediction":   sig.ml_prediction,
+        "ml_confidence":   sig.ml_confidence,
     }
+
+
+# ── ML model training ─────────────────────────────────────────────────────────
+
+def _train_ml_models(symbols: list[str]) -> None:
+    """
+    Train ML signal predictor + regime classifier for each symbol.
+    Runs in background threads — fully non-blocking.
+    Fetches a long history (1h candles) for training.
+    """
+    def _worker():
+        try:
+            from ml.signal_predictor import get_predictor
+            from ml.regime_classifier import get_regime_classifier
+            predictor = get_predictor()
+            regime_clf = get_regime_classifier()
+
+            regime_trained = False
+            for sym in symbols:
+                try:
+                    df = fetch_ohlcv(sym, config.TF_PRIMARY, limit=1000)
+                    if df.empty or len(df) < 250:
+                        continue
+                    df = enrich(df)
+
+                    # Train per-symbol signal predictor
+                    predictor.train(sym, df)
+
+                    # Train the regime classifier once (on BTC — the market leader)
+                    if not regime_trained and sym == "BTC/USD":
+                        if regime_clf.train(df):
+                            regime_clf.save()
+                            regime_trained = True
+                except Exception as e:
+                    logger.warning("ML training error for %s: %s", sym, e)
+
+            # If BTC wasn't in the list, train regime on the first available symbol
+            if not regime_trained:
+                for sym in symbols:
+                    df = fetch_ohlcv(sym, config.TF_PRIMARY, limit=1000)
+                    if not df.empty and len(df) >= 250:
+                        df = enrich(df)
+                        if regime_clf.train(df):
+                            regime_clf.save()
+                        break
+
+            logger.info("ML model training pass complete (%d symbols)", len(symbols))
+        except Exception as e:
+            logger.error("ML training worker failed: %s", e)
+
+    t = threading.Thread(target=_worker, daemon=True, name="ml-training")
+    t.start()
+    logger.info("ML training started in background for %d symbols", len(symbols))
 
 
 # ── Dynamic symbol ranking ────────────────────────────────────────────────────
@@ -147,7 +203,7 @@ def try_open_trade(signal: SignalResult) -> None:
     entry = signal.entry_price
     stop  = signal.stop_loss
     tp    = signal.take_profit
-    usdt  = risk_mgr.position_size_usdt(entry, stop, signal.score)
+    usdt  = risk_mgr.position_size_usdt(entry, stop, signal.score, signal.ml_confidence)
 
     if usdt < 5:
         logger.info("Position too small for %s (%.2f USDT)", signal.symbol, usdt)
@@ -300,7 +356,12 @@ def run() -> None:
                 len(universe.get_watchlist()))
     notify_bot_started(config.TOTAL_CAPITAL_USDT, universe.get_watchlist())
 
+    # ── Train ML models on startup (background, non-blocking) ─────────────────
+    if getattr(config, "ML_ENABLED", False) and getattr(config, "ML_TRAIN_ON_START", False):
+        _train_ml_models(universe.get_watchlist())
+
     last_summary_hour = -1   # track hourly portfolio summary
+    last_ml_train_hour = -1  # track ML retraining cadence
 
     while True:
         if is_paused():
@@ -349,6 +410,13 @@ def run() -> None:
                 open_positions=summary["open_details"],
                 closed_trades=closed,
             )
+
+        # Retrain ML models every ML_RETRAIN_HOURS
+        if getattr(config, "ML_ENABLED", False):
+            retrain_interval = getattr(config, "ML_RETRAIN_HOURS", 12)
+            if (current_hour % retrain_interval == 0) and (current_hour != last_ml_train_hour):
+                last_ml_train_hour = current_hour
+                _train_ml_models(current_universe)
 
         time.sleep(config.SCAN_INTERVAL_SECONDS)
 

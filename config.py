@@ -78,6 +78,15 @@ CANDLE_LIMIT = 300
 # No API keys required — uses Alternative.me + CoinGecko + RSS feeds
 SENTIMENT_WEIGHT    = 1.0      # how much sentiment contributes to signal score
 
+# ── Machine Learning (FreqAI-inspired, own implementation) ────────────────────
+ML_ENABLED          = True     # master switch for ML features
+ML_WEIGHT           = 1.0      # how much the ML signal contributes to the score
+ML_USE_REGIME       = True     # use ML regime classifier instead of EMA rules
+ML_SCALE_POSITIONS  = True     # scale position size by ML confidence
+ML_MIN_CONFIDENCE   = 0.60     # below this, ML adds no directional weight
+ML_RETRAIN_HOURS    = 12       # retrain models every N hours
+ML_TRAIN_ON_START   = True     # train all models when bot starts
+
 # ── Telegram notifications ────────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
