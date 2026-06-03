@@ -18,7 +18,7 @@ import pandas as pd
 import ccxt
 
 import config
-from exchange.market_data import get_exchange, fetch_ohlcv
+from exchange.market_data import get_public_exchange, fetch_ohlcv
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def get_refresh_log() -> list[dict]:
 def _all_usd_pairs() -> list[str]:
     """Return all active spot USD pairs on Coinbase."""
     try:
-        ex = get_exchange()
+        ex = get_public_exchange()
         markets = ex.load_markets()
         pairs = [
             s for s, m in markets.items()
@@ -161,7 +161,7 @@ def refresh_universe(force: bool = False) -> list[str]:
 
     # Step 1: Fetch all pairs and their 24h tickers
     all_pairs = _all_usd_pairs()
-    ex = get_exchange()
+    ex = get_public_exchange()
 
     try:
         tickers = ex.fetch_tickers(all_pairs)

@@ -23,20 +23,32 @@ def _wrap_coinbase_secret(secret: str) -> str:
     return f"-----BEGIN EC PRIVATE KEY-----\n{body}\n-----END EC PRIVATE KEY-----\n"
 
 
-def _build_exchange() -> ccxt.Exchange:
-    secret = config.API_SECRET
-    if config.EXCHANGE == "coinbase":
-        secret = _wrap_coinbase_secret(secret)
+def _build_exchange(authenticated: bool = True) -> ccxt.Exchange:
+    """
+    Build a CCXT exchange instance.
 
+    authenticated=True  → includes API keys, used for trading (orders, balance).
+    authenticated=False → NO keys, used for public market data (candles, tickers).
+
+    Why two clients? CCXT's Coinbase driver calls the *authenticated*
+    transaction_summary endpoint during load_markets() to fetch fee tiers.
+    If the API key has any issue this returns 401 and breaks even public
+    candle fetches. A keyless client skips that call entirely, so public
+    data always works regardless of key state.
+    """
     params = {
-        "apiKey": config.API_KEY,
-        "secret": secret,
         "enableRateLimit": True,
         "options": {"defaultType": "spot"},
     }
-    # Coinbase Advanced Trade requires the v3 API header
-    if config.EXCHANGE == "coinbase":
-        params["options"]["advanced"] = True
+
+    if authenticated and config.API_KEY and config.API_SECRET:
+        secret = config.API_SECRET
+        if config.EXCHANGE == "coinbase":
+            secret = _wrap_coinbase_secret(secret)
+        params["apiKey"] = config.API_KEY
+        params["secret"] = secret
+        if config.EXCHANGE == "coinbase":
+            params["options"]["advanced"] = True
 
     exchange_cls = getattr(ccxt, config.EXCHANGE)
     ex = exchange_cls(params)
@@ -50,14 +62,24 @@ def _build_exchange() -> ccxt.Exchange:
     return ex
 
 
-_exchange: ccxt.Exchange | None = None
+_exchange:        ccxt.Exchange | None = None   # authenticated — trading
+_public_exchange: ccxt.Exchange | None = None   # keyless — public data
 
 
 def get_exchange() -> ccxt.Exchange:
+    """Authenticated client — for placing orders and reading balance."""
     global _exchange
     if _exchange is None:
-        _exchange = _build_exchange()
+        _exchange = _build_exchange(authenticated=True)
     return _exchange
+
+
+def get_public_exchange() -> ccxt.Exchange:
+    """Keyless client — for public market data (candles, tickers, order book)."""
+    global _public_exchange
+    if _public_exchange is None:
+        _public_exchange = _build_exchange(authenticated=False)
+    return _public_exchange
 
 
 _TF_MS = {
@@ -73,7 +95,7 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = config.CANDLE_LIMIT) -
     Return OHLCV DataFrame. Paginates automatically for exchanges (like Coinbase)
     that cap each request at 300 candles.
     """
-    ex = get_exchange()
+    ex = get_public_exchange()   # keyless — public candle data
     tf_ms = _TF_MS.get(timeframe, 3_600_000)
 
     all_raw: list = []
@@ -124,7 +146,7 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = config.CANDLE_LIMIT) -
 
 
 def fetch_ticker(symbol: str) -> dict:
-    ex = get_exchange()
+    ex = get_public_exchange()   # keyless — public ticker
     try:
         return ex.fetch_ticker(symbol)
     except Exception as e:
@@ -133,7 +155,7 @@ def fetch_ticker(symbol: str) -> dict:
 
 
 def fetch_order_book(symbol: str, depth: int = 10) -> dict:
-    ex = get_exchange()
+    ex = get_public_exchange()   # keyless — public order book
     try:
         return ex.fetch_order_book(symbol, limit=depth)
     except Exception as e:
