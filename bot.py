@@ -28,7 +28,9 @@ from colorama import Fore, Style, init as colorama_init
 import config
 import ui.state as st
 import exchange.universe as universe
-from exchange.market_data import fetch_ohlcv, fetch_ticker, place_order, check_auth
+from exchange.market_data import (fetch_ohlcv, fetch_ticker, place_order, check_auth,
+                                   place_stop_limit_order, place_take_profit_order,
+                                   cancel_order, get_order_status)
 from core.indicators import enrich
 from core.strategies import analyse, SignalResult
 from risk.risk_manager import RiskManager
@@ -50,6 +52,7 @@ logging.basicConfig(
 logger = logging.getLogger("bot")
 
 risk_mgr = RiskManager()
+_positions_lock = threading.Lock()   # guards position close/monitor against races
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -224,6 +227,11 @@ def try_open_trade(signal: SignalResult) -> None:
         atr=signal.atr, order_id=order.get("id", ""),
     )
 
+    # ── Place exchange-side protective orders (live mode) ─────────────────────
+    # Professional-grade: the exchange enforces the stop/target instantly, even
+    # if the bot is slow or down. In DRY_RUN these are simulated (no real order).
+    _place_protective_orders(signal.symbol, signal.direction, qty, stop, tp)
+
     trade_record = {
         "time":   datetime.now(timezone.utc).isoformat(),
         "action": "open",
@@ -256,10 +264,167 @@ def try_open_trade(signal: SignalResult) -> None:
                 signal.direction.upper(), signal.symbol, signal.score, entry, stop, tp, qty)
 
 
+def _place_protective_orders(symbol: str, direction: str, qty: float,
+                             stop: float, take_profit: float) -> None:
+    """
+    Place exchange-side stop-limit (stop loss) + limit (take profit) orders.
+    In DRY_RUN these are simulated. On live, if the stop is rejected we fall
+    back to poll-based monitoring and alert — we never leave a position
+    unprotected silently.
+    """
+    # Only place real exchange-side orders if enabled (live). DRY_RUN simulates.
+    if not getattr(config, "USE_EXCHANGE_STOPS", True):
+        return
+
+    # Protective side is opposite the entry: long → sell to exit, short → buy
+    exit_side = "sell" if direction == "long" else "buy"
+
+    # Limit price for the stop sits slightly beyond the trigger to improve fill
+    # odds in a fast move (0.3% buffer).
+    if direction == "long":
+        stop_limit_price = stop * 0.997
+    else:
+        stop_limit_price = stop * 1.003
+
+    stop_order = place_stop_limit_order(symbol, exit_side, qty, stop, stop_limit_price)
+    tp_order   = place_take_profit_order(symbol, exit_side, qty, take_profit)
+
+    stop_id = stop_order.get("id", "") if stop_order else ""
+    tp_id   = tp_order.get("id", "")   if tp_order   else ""
+
+    risk_mgr.attach_protective_orders(symbol, stop_id, tp_id)
+
+    if not config.DRY_RUN and not stop_id:
+        # Live mode but the protective stop failed — this is a risk event.
+        logger.error("⚠️ Exchange stop order FAILED for %s — falling back to "
+                     "poll-based monitoring. Position is less protected.", symbol)
+        try:
+            notify_error(f"⚠️ Stop order failed on {symbol} — using poll-based "
+                         f"monitoring. Watch this position.")
+        except Exception:
+            pass
+
+
+def _close_position(symbol: str, pos, exit_price: float, reason: str,
+                    already_filled_on_exchange: bool = False) -> None:
+    """
+    Single shared close routine: cancel sibling protective order (manual OCO),
+    place the exit market order if needed, record the trade, notify, persist.
+
+    already_filled_on_exchange=True means a protective order already executed on
+    the exchange (so we must NOT place another exit order — just reconcile).
+    """
+    # Manual OCO: cancel whichever protective order did NOT fill
+    if pos.protected and not config.DRY_RUN:
+        if reason in ("stop_loss", "trailing"):
+            cancel_order(pos.tp_order_id, symbol)      # stop hit → cancel TP
+        elif reason == "take_profit":
+            cancel_order(pos.stop_order_id, symbol)    # TP hit → cancel stop
+        else:
+            cancel_order(pos.stop_order_id, symbol)
+            cancel_order(pos.tp_order_id, symbol)
+
+    pnl = risk_mgr.close_position(symbol, exit_price, reason)
+
+    # Place the exit order only if the exchange hasn't already filled one
+    if not already_filled_on_exchange:
+        exit_side = "sell" if pos.side == "long" else "buy"
+        place_order(symbol, exit_side, pos.qty)
+
+    trade_record = {
+        "time":   datetime.now(timezone.utc).isoformat(),
+        "action": "close",
+        "symbol": symbol,
+        "side":   pos.side,
+        "entry":  pos.entry_price,
+        "price":  exit_price,
+        "pnl":    round(pnl, 4),
+        "reason": reason,
+        "score":  None,
+    }
+    st.add_trade(trade_record)
+    st.set_capital(risk_mgr.summary()["capital_usdt"])
+
+    hold_mins = None
+    try:
+        hold_mins = int((datetime.now(timezone.utc) - pos.opened_at).total_seconds() / 60)
+    except Exception:
+        pass
+
+    notify_trade_close(
+        symbol=symbol, direction=pos.side, entry=pos.entry_price,
+        exit_price=exit_price, qty=pos.qty, pnl=pnl, reason=reason,
+        hold_duration_mins=hold_mins,
+    )
+    logger.info("TRADE CLOSED: %s @ %.6f  Reason=%s  PnL=%.4f",
+                symbol, exit_price, reason, pnl)
+
+
 def check_open_positions() -> None:
+    """
+    Monitor open positions. Runs frequently (fast loop).
+
+    Live + protected: check whether the exchange-side stop/TP order filled.
+                      If so, reconcile (manual OCO) — no extra exit order.
+    Otherwise (dry-run, or live fallback): poll the ticker and enforce
+                      stop/target/trailing in-code.
+
+    Guarded by a lock so the entry loop and fast monitor never close the same
+    position twice.
+    """
+    if not _positions_lock.acquire(blocking=False):
+        return   # another thread is already checking — skip this tick
+    try:
+        _check_open_positions_impl()
+    finally:
+        _positions_lock.release()
+
+
+def _check_open_positions_impl() -> None:
     for symbol, pos in list(risk_mgr.positions.items()):
         if pos.status != "open":
             continue
+
+        # ── Live + protected: reconcile with exchange fills ───────────────────
+        if pos.protected and not config.DRY_RUN:
+            filled_reason = None
+            filled_price  = None
+            stop_o = get_order_status(pos.stop_order_id, symbol)
+            if stop_o and stop_o.get("status") == "closed":
+                filled_reason = "stop_loss"
+                filled_price  = stop_o.get("average") or stop_o.get("price") or pos.stop_loss
+            else:
+                tp_o = get_order_status(pos.tp_order_id, symbol)
+                if tp_o and tp_o.get("status") == "closed":
+                    filled_reason = "take_profit"
+                    filled_price  = tp_o.get("average") or tp_o.get("price") or pos.take_profit
+
+            if filled_reason:
+                _close_position(symbol, pos, float(filled_price), filled_reason,
+                                already_filled_on_exchange=True)
+                continue
+
+            # Trailing stop: if price moved enough to raise the stop, cancel the
+            # old exchange stop and re-place it at the new (tighter) level.
+            ticker = fetch_ticker(symbol)
+            if ticker:
+                cur = ticker.get("last") or ticker.get("close", pos.entry_price)
+                old_stop = pos.stop_loss
+                risk_mgr.update_position(symbol, cur)   # updates trailing internally
+                if abs(pos.stop_loss - old_stop) > 1e-9:
+                    exit_side = "sell" if pos.side == "long" else "buy"
+                    cancel_order(pos.stop_order_id, symbol)
+                    lim = pos.stop_loss * (0.997 if pos.side == "long" else 1.003)
+                    new_stop_o = place_stop_limit_order(symbol, exit_side, pos.qty,
+                                                        pos.stop_loss, lim)
+                    if new_stop_o:
+                        risk_mgr.attach_protective_orders(
+                            symbol, new_stop_o.get("id", ""), pos.tp_order_id)
+                        logger.info("Trailing stop re-placed for %s → %.6f",
+                                    symbol, pos.stop_loss)
+            continue
+
+        # ── Dry-run or live fallback: in-code stop/target/trailing ────────────
         ticker = fetch_ticker(symbol)
         if not ticker:
             continue
@@ -267,48 +432,27 @@ def check_open_positions() -> None:
         action_info   = risk_mgr.update_position(symbol, current_price)
 
         if action_info["action"] == "close":
-            pnl      = risk_mgr.close_position(symbol, current_price, action_info["reason"])
-            side_str = "sell" if pos.side == "long" else "buy"
-            place_order(symbol, side_str, pos.qty)
-
-            trade_record = {
-                "time":   datetime.now(timezone.utc).isoformat(),
-                "action": "close",
-                "symbol": symbol,
-                "side":   pos.side,
-                "entry":  pos.entry_price,
-                "price":  current_price,
-                "pnl":    round(pnl, 4),
-                "reason": action_info["reason"],
-                "score":  None,
-            }
-            st.add_trade(trade_record)
-            st.set_capital(risk_mgr.summary()["capital_usdt"])
-
-            # Calculate how long the trade was held
-            hold_mins = None
-            try:
-                opened_at = pos.opened_at
-                hold_mins = int((datetime.now(timezone.utc) - opened_at).total_seconds() / 60)
-            except Exception:
-                pass
-
-            notify_trade_close(
-                symbol=symbol,
-                direction=pos.side,
-                entry=pos.entry_price,
-                exit_price=current_price,
-                qty=pos.qty,
-                pnl=pnl,
-                reason=action_info["reason"],
-                hold_duration_mins=hold_mins,
-            )
-            logger.info("TRADE CLOSED: %s @ %.6f  Reason=%s  PnL=%.4f",
-                        symbol, current_price, action_info["reason"], pnl)
+            _close_position(symbol, pos, current_price, action_info["reason"])
 
     # Push updated open positions to state
     summary = risk_mgr.summary()
     st.set_open_positions(summary["open_details"])
+
+
+def _position_monitor_loop() -> None:
+    """
+    Dedicated fast loop for position safety — runs independently of the slower
+    entry-scan loop so stops/targets are checked every POSITION_CHECK_SECONDS
+    instead of once per full scan. This is the professional-grade exit guard.
+    """
+    interval = getattr(config, "POSITION_CHECK_SECONDS", 45)
+    while True:
+        try:
+            if not is_paused() and any(p.status == "open" for p in risk_mgr.positions.values()):
+                check_open_positions()
+        except Exception as e:
+            logger.error("Position monitor error: %s", e)
+        time.sleep(interval)
 
 
 # ── Terminal dashboard (secondary output) ─────────────────────────────────────
@@ -386,6 +530,13 @@ def run() -> None:
     # Start dynamic universe (auto-discovers top trending Coinbase coins every hour)
     universe.start_background_refresh()
 
+    # Start the fast exit-guard loop (checks stops/targets every POSITION_CHECK_SECONDS,
+    # independently of the slower entry scan — professional-grade exit protection)
+    threading.Thread(target=_position_monitor_loop, daemon=True,
+                     name="position-monitor").start()
+    logger.info("Position monitor active — exit guard every %ds",
+                getattr(config, "POSITION_CHECK_SECONDS", 45))
+
     # Initialise state
     st.set_capital(config.TOTAL_CAPITAL_USDT, initial=True)
     st.set_bot_status("running")
@@ -431,7 +582,9 @@ def run() -> None:
         for sig in signals:
             try_open_trade(sig)
 
-        check_open_positions()
+        # NOTE: position monitoring is handled by the dedicated fast monitor
+        # thread (_position_monitor_loop), not here — avoids double-close races
+        # and gives much tighter stop/target enforcement.
 
         st.set_bot_status("running")
         print_terminal(signals)

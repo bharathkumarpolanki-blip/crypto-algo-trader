@@ -93,5 +93,11 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # ── Bot loop ──────────────────────────────────────────────────────────────────
-SCAN_INTERVAL_SECONDS = 300    # scan every 5 minutes
+SCAN_INTERVAL_SECONDS = 300    # entry scan cadence (1h candles — 5 min is ample)
+POSITION_CHECK_SECONDS = 45    # exit guard cadence — fast loop for stops/targets
 DRY_RUN = True                 # True = never place real orders; just log signals
+
+# ── Exchange-side protective orders ───────────────────────────────────────────
+USE_EXCHANGE_STOPS = True      # place real stop/TP orders on the exchange (live).
+                               # The exchange enforces them instantly even if the
+                               # bot is slow/down. DRY_RUN simulates them.

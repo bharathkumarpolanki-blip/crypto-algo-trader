@@ -215,3 +215,90 @@ def place_order(symbol: str, side: str, amount: float,
     except Exception as e:
         logger.error("Order failed %s %s %s: %s", side, symbol, amount, e)
         return None
+
+
+# ── Protective (exchange-side) orders ─────────────────────────────────────────
+# Professional-grade: the exchange enforces stop/target instantly, 24/7, even if
+# the bot is slow, sleeping or crashed. Coinbase has no native OCO, so the bot
+# implements manual OCO (cancel the sibling order when one fills).
+
+def place_stop_limit_order(symbol: str, side: str, amount: float,
+                           stop_price: float, limit_price: float) -> dict | None:
+    """
+    Place a STOP-LIMIT order on the exchange (the protective stop loss).
+
+    side        : "sell" to protect a long, "buy" to protect a short
+    stop_price  : trigger price — when market reaches this, the limit order activates
+    limit_price : the worst price you'll accept once triggered (set slightly
+                  beyond stop_price to improve fill odds in a fast move)
+    """
+    if config.DRY_RUN:
+        logger.info("[DRY RUN] STOP-LIMIT %s %s %.6f trigger=%.6f limit=%.6f",
+                    side.upper(), symbol, amount, stop_price, limit_price)
+        return {"id": "DRY_RUN_STOP", "type": "stop", "symbol": symbol,
+                "side": side, "amount": amount, "stopPrice": stop_price}
+    ex = get_exchange()
+    try:
+        # CCXT Coinbase: stop is signalled via the stopPrice param on a limit order
+        order = ex.create_order(
+            symbol, "limit", side, amount, limit_price,
+            {"stopPrice": stop_price, "stop_direction":
+                "STOP_DIRECTION_STOP_DOWN" if side == "sell" else "STOP_DIRECTION_STOP_UP"},
+        )
+        logger.info("Exchange STOP-LIMIT placed: %s %s trigger=%.6f id=%s",
+                    side.upper(), symbol, stop_price, order.get("id"))
+        return order
+    except Exception as e:
+        logger.error("Stop-limit order failed %s %s: %s", side, symbol, e)
+        return None
+
+
+def place_take_profit_order(symbol: str, side: str, amount: float,
+                            price: float) -> dict | None:
+    """
+    Place a LIMIT order on the exchange as the take-profit target.
+    side : "sell" to take profit on a long, "buy" to take profit on a short.
+    """
+    if config.DRY_RUN:
+        logger.info("[DRY RUN] TAKE-PROFIT LIMIT %s %s %.6f @ %.6f",
+                    side.upper(), symbol, amount, price)
+        return {"id": "DRY_RUN_TP", "type": "limit", "symbol": symbol,
+                "side": side, "amount": amount, "price": price}
+    ex = get_exchange()
+    try:
+        order = ex.create_order(symbol, "limit", side, amount, price)
+        logger.info("Exchange TAKE-PROFIT placed: %s %s @ %.6f id=%s",
+                    side.upper(), symbol, price, order.get("id"))
+        return order
+    except Exception as e:
+        logger.error("Take-profit order failed %s %s: %s", side, symbol, e)
+        return None
+
+
+def cancel_order(order_id: str, symbol: str) -> bool:
+    """Cancel an open order. Returns True on success."""
+    if config.DRY_RUN or not order_id or order_id.startswith("DRY_RUN"):
+        return True
+    ex = get_exchange()
+    try:
+        ex.cancel_order(order_id, symbol)
+        logger.info("Cancelled order %s on %s", order_id, symbol)
+        return True
+    except Exception as e:
+        logger.warning("Cancel order %s on %s failed: %s", order_id, symbol, e)
+        return False
+
+
+def get_order_status(order_id: str, symbol: str) -> dict | None:
+    """
+    Fetch an order's current status. Returns the order dict, or None on error.
+    Key field: order['status'] ∈ {'open','closed','canceled'}; 'closed' = filled.
+    """
+    if config.DRY_RUN or not order_id or order_id.startswith("DRY_RUN"):
+        return None
+    ex = get_exchange()
+    try:
+        return ex.fetch_order(order_id, symbol)
+    except Exception as e:
+        logger.warning("Fetch order %s on %s failed: %s", order_id, symbol, e)
+        return None

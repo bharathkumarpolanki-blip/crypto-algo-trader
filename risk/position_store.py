@@ -8,7 +8,18 @@ import logging
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-_FILE = os.path.join(os.path.dirname(__file__), "positions.json")
+# Resolve to the PROJECT ROOT (parent of the risk/ package dir), so the state
+# file is predictable regardless of where this module lives after refactors.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_FILE = os.path.join(_PROJECT_ROOT, "positions.json")
+
+# One-time migration: if a stale file exists in the old risk/ location, move it.
+_OLD_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "positions.json")
+if os.path.exists(_OLD_FILE) and not os.path.exists(_FILE):
+    try:
+        os.replace(_OLD_FILE, _FILE)
+    except Exception:
+        pass
 
 
 def save(positions: dict) -> None:
@@ -28,6 +39,9 @@ def save(positions: dict) -> None:
                     "opened_at":    pos.opened_at.isoformat(),
                     "highest_price":pos.highest_price,
                     "lowest_price": pos.lowest_price,
+                    "stop_order_id":pos.stop_order_id,
+                    "tp_order_id":  pos.tp_order_id,
+                    "protected":    pos.protected,
                 }
         with open(_FILE, "w") as f:
             json.dump(data, f, indent=2)

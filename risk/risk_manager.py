@@ -37,6 +37,10 @@ class Position:
     lowest_price: float  = 0.0   # for trailing stop (short)
     unrealized_pnl: float = 0.0
     status: str = "open"   # open | closed
+    # Exchange-side protective order IDs (live mode)
+    stop_order_id: str = ""      # stop-limit order protecting this position
+    tp_order_id:   str = ""      # take-profit limit order
+    protected:     bool = False  # True if exchange-side orders are active
 
 
 class RiskManager:
@@ -62,6 +66,9 @@ class RiskManager:
                 opened_at=opened_at,
                 highest_price=d.get("highest_price", d["entry_price"]),
                 lowest_price=d.get("lowest_price",  d["entry_price"]),
+                stop_order_id=d.get("stop_order_id", ""),
+                tp_order_id=d.get("tp_order_id", ""),
+                protected=d.get("protected", False),
             )
             self.positions[sym] = pos
             logger.info("Restored position: %s %s @ %.6f", d["side"].upper(), sym, d["entry_price"])
@@ -142,6 +149,25 @@ class RiskManager:
                     side.upper(), symbol, entry, stop, take_profit, qty)
         import risk.position_store as position_store; position_store.save(self.positions)
         return pos
+
+    def attach_protective_orders(self, symbol: str,
+                                 stop_order_id: str, tp_order_id: str) -> None:
+        """Record the exchange-side stop/take-profit order IDs for a position."""
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return
+        pos.stop_order_id = stop_order_id or ""
+        pos.tp_order_id   = tp_order_id or ""
+        pos.protected     = bool(stop_order_id)   # protected if at least the stop exists
+        import risk.position_store as position_store; position_store.save(self.positions)
+
+    def update_stop(self, symbol: str, new_stop: float) -> None:
+        """Update a position's stop level (used by trailing stop) and persist."""
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return
+        pos.stop_loss = new_stop
+        import risk.position_store as position_store; position_store.save(self.positions)
 
     def update_position(self, symbol: str, current_price: float) -> dict:
         """Update unrealized PnL and trailing stop. Returns action dict."""

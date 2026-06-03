@@ -57,7 +57,23 @@ ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 
 ## Known professional-grade gaps to keep improving
 
-- [ ] Exchange-side stop-loss/take-profit orders (currently poll-based — slippage risk)
-- [ ] Decoupled fast position-monitoring loop (separate from entry scans)
+- [x] Exchange-side stop-loss/take-profit orders (stop-limit + limit, manual OCO)
+- [x] Decoupled fast position-monitoring loop (POSITION_CHECK_SECONDS, own thread)
 - [ ] Circuit breaker (halt all trading on extreme market-wide drawdown)
 - [ ] Partial-fill handling on live orders
+- [ ] Stop-limit gap-through safety net (limit may not fill in a fast gap)
+
+## Exit handling design (professional-grade)
+
+- On open (live): place exchange-side stop-limit (stop) + limit (take-profit).
+  The exchange enforces them instantly even if the bot is slow/down.
+- Coinbase has NO native OCO → manual OCO: when one protective order fills, the
+  monitor cancels the sibling.
+- Trailing stop (live): when price moves favourably, cancel the old exchange stop
+  and re-place it tighter.
+- Fast monitor thread (_position_monitor_loop) checks exits every
+  POSITION_CHECK_SECONDS (45s) — independent of the 5-min entry scan. Guarded by
+  _positions_lock so entry loop + monitor never double-close.
+- DRY_RUN simulates all protective orders (no real orders placed).
+- If a live stop order is rejected → fall back to poll-based monitoring + Telegram
+  alert (never silently unprotected).
