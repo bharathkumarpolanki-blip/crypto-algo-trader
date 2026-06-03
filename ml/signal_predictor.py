@@ -155,16 +155,17 @@ class SignalPredictor:
                 logger.debug("Only one class for %s — skipping", symbol)
                 return False
 
-            # Gradient-boosting binary classifier (sklearn, pure Python deps)
+            # Gradient-boosting binary classifier (sklearn, pure Python deps).
+            # early_stopping disabled: its internal validation split can land a
+            # single class on skewed crypto data and leave the model half-fitted
+            # (missing _baseline_prediction). Fixed iterations + L2 reg is safe.
             model = HistGradientBoostingClassifier(
                 max_iter=200,
                 learning_rate=0.05,
                 max_leaf_nodes=31,
                 min_samples_leaf=20,
                 l2_regularization=0.1,
-                early_stopping=True,
-                validation_fraction=0.15,
-                n_iter_no_change=20,
+                early_stopping=False,
                 random_state=42,
             )
             model.fit(data.X_train, data.y_train, sample_weight=data.weights)

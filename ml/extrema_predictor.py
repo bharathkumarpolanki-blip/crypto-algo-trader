@@ -112,15 +112,15 @@ class ExtremaPredictor:
             proc = Preprocessor(test_size=0.2, weight_decay=0.92)
             data = proc.fit_transform(feature_df, targets)
 
+            # early_stopping disabled — see signal_predictor for rationale
+            # (degenerate internal validation split on skewed data).
             model = HistGradientBoostingRegressor(
                 max_iter=200,
                 learning_rate=0.05,
                 max_leaf_nodes=31,
                 min_samples_leaf=20,
                 l2_regularization=0.1,
-                early_stopping=True,
-                validation_fraction=0.15,
-                n_iter_no_change=20,
+                early_stopping=False,
                 random_state=42,
             )
             model.fit(data.X_train, data.y_train, sample_weight=data.weights)

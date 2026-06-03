@@ -91,32 +91,47 @@ class RegimeClassifier:
             feature_df = feature_df.iloc[:-FORWARD_WINDOW]
             labels     = labels.iloc[:-FORWARD_WINDOW]
 
-            # Encode labels: bull=0, bear=1, sideways=2 (arbitrary)
+            # Encode labels: bull/bear/sideways → integers
             y_encoded = self.encoder.fit_transform(labels)
 
             # Preprocess
             data = self.preprocessor.fit_transform(feature_df, pd.Series(y_encoded, index=feature_df.index))
 
-            # Gradient-boosting multi-class classifier (sklearn)
-            self.model = HistGradientBoostingClassifier(
+            # Guard: need at least 2 distinct classes in the TRAIN split, else
+            # the classifier can't fit (e.g. a strong one-sided market produces
+            # all-'bear' or all-'sideways' labels → degenerate model).
+            n_classes_train = len(np.unique(data.y_train))
+            if n_classes_train < 2:
+                logger.info("Regime classifier skipped — only %d class in training "
+                            "window (one-sided market). Keeping previous model.",
+                            n_classes_train)
+                return False
+
+            # Build into a LOCAL variable — only swap into self.model on full
+            # success, so a failed retrain never discards a previously-good model.
+            # Disable early_stopping: its internal validation split can land a
+            # single class (degenerate) and leave the model without
+            # _baseline_prediction. Fixed iteration count is safe here.
+            model = HistGradientBoostingClassifier(
                 max_iter=150,
                 learning_rate=0.05,
                 max_leaf_nodes=15,
                 min_samples_leaf=15,
                 l2_regularization=0.1,
-                early_stopping=True,
-                validation_fraction=0.15,
-                n_iter_no_change=20,
+                early_stopping=False,
                 random_state=42,
             )
-            self.model.fit(data.X_train, data.y_train, sample_weight=data.weights)
+            model.fit(data.X_train, data.y_train, sample_weight=data.weights)
 
-            # Accuracy
-            pred_cls = self.model.predict(data.X_test)
-            self.test_acc = float((pred_cls == data.y_test.astype(int)).mean())
+            # Verify the model is fully fitted before trusting it
+            pred_cls = model.predict(data.X_test)
+
+            # Commit — only now does the new model become live
+            self.model       = model
+            self.test_acc    = float((pred_cls == data.y_test.astype(int)).mean())
             self.X_train_ref = data.X_train
+            self.trained_at  = pd.Timestamp.now(tz="UTC").isoformat()
 
-            # Distribution of labels
             from collections import Counter
             dist = Counter(labels)
             logger.info("Regime classifier trained | accuracy=%.2f | distribution=%s",
@@ -124,7 +139,7 @@ class RegimeClassifier:
             return True
 
         except Exception as e:
-            logger.error("Regime classifier training failed: %s", e)
+            logger.warning("Regime classifier training skipped (keeping previous model): %s", e)
             return False
 
     def predict(self, df: pd.DataFrame) -> RegimePrediction:
@@ -148,10 +163,16 @@ class RegimeClassifier:
                 if d > 1.0:
                     reliable = False
 
-            probs    = self.model.predict_proba(X_live)[0]   # shape (n_classes,)
-            classes  = self.encoder.classes_                 # e.g. ["bear","bull","sideways"]
+            probs = self.model.predict_proba(X_live)[0]   # aligned with model.classes_
 
-            prob_map = {cls: float(probs[i]) for i, cls in enumerate(classes)}
+            # IMPORTANT: map probabilities using the model's OWN learned classes
+            # (encoded ints), then decode each to its label. If the model only
+            # saw 2 of 3 regimes, model.classes_ has 2 entries — using
+            # encoder.classes_ (3 entries) here would misalign the columns.
+            model_class_ids = self.model.classes_            # encoded ints actually learned
+            labels_for_ids  = self.encoder.inverse_transform(model_class_ids.astype(int))
+
+            prob_map = {lbl: float(probs[i]) for i, lbl in enumerate(labels_for_ids)}
             bull_p   = prob_map.get("bull",     0.0)
             bear_p   = prob_map.get("bear",     0.0)
             side_p   = prob_map.get("sideways", 0.0)
