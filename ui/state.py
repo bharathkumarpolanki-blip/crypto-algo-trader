@@ -48,6 +48,9 @@ _state: dict[str, Any] = {
     # ── Universe state ────────────────────────────────────────────────────────
     "universe_symbols":  [],            # current dynamic watchlist
     "universe_log":      [],            # history of refreshes
+    # ── ML state ──────────────────────────────────────────────────────────────
+    "ml_training":       {"active": False, "progress": ""},
+    "tuner":             {"active": False, "progress": "", "result": None},
 }
 
 
@@ -134,6 +137,36 @@ def get_universe() -> dict:
             "symbols": _state["universe_symbols"],
             "log":     _state["universe_log"],
         }
+
+
+# ── ML training state ─────────────────────────────────────────────────────────
+
+def set_ml_training(active: bool, progress: str = "") -> None:
+    with _lock:
+        _state["ml_training"] = {"active": active, "progress": progress}
+
+
+def get_ml_training() -> dict:
+    with _lock:
+        return dict(_state["ml_training"])
+
+
+# ── Auto-tuner state ──────────────────────────────────────────────────────────
+
+def set_tuner(active: bool, progress: str = "", result: dict | None = None) -> None:
+    with _lock:
+        prev = _state.get("tuner", {})
+        _state["tuner"] = {
+            "active":   active,
+            "progress": progress,
+            # keep previous result unless a new one is supplied
+            "result":   result if result is not None else prev.get("result"),
+        }
+
+
+def get_tuner() -> dict:
+    with _lock:
+        return dict(_state["tuner"])
 
 
 def get_backtest() -> dict:

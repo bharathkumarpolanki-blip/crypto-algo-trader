@@ -199,6 +199,169 @@ def api_universe_refresh():
     return jsonify({"status": "refreshing"})
 
 
+# ── ML API ─────────────────────────────────────────────────────────────────────
+
+@app.route("/api/ml/status", methods=["GET"])
+def api_ml_status():
+    """Return per-symbol ML model status: AUC, MAE, features, top features."""
+    try:
+        import config as _cfg
+        from ml.signal_predictor import get_predictor
+        from ml.extrema_predictor import get_extrema_predictor
+        import exchange.universe as u
+
+        predictor = get_predictor()
+        extrema   = get_extrema_predictor()
+        symbols   = u.get_watchlist()
+
+        rows = []
+        for sym in symbols:
+            sig_stats = predictor.model_stats(sym)
+            ex_stats  = extrema.model_stats(sym)
+            if not sig_stats and not ex_stats:
+                continue
+            test_auc = sig_stats.get("test_auc", 0.0)
+            rows.append({
+                "symbol":       sym,
+                "test_auc":     test_auc,
+                "train_auc":    sig_stats.get("train_auc", 0.0),
+                "n_features":   sig_stats.get("n_features", 0),
+                "auc_usable":   test_auc >= 0.53,
+                "extrema_mae":  ex_stats.get("mae", None),
+                "extrema_usable": (ex_stats.get("mae", 1.0) <= 0.45) if ex_stats else False,
+                "trained_at":   sig_stats.get("trained_at", ex_stats.get("trained_at", "")),
+                "top_features": predictor.feature_importance(sym, 5),
+            })
+
+        return jsonify({
+            "enabled":   getattr(_cfg, "ML_ENABLED", False),
+            "weight":    getattr(_cfg, "ML_WEIGHT", 1.0),
+            "models":    rows,
+            "n_models":  len(rows),
+        })
+    except Exception as e:
+        logger.error("ML status failed: %s", e)
+        return jsonify({"error": str(e), "models": []}), 500
+
+
+@app.route("/api/ml/train", methods=["POST"])
+def api_ml_train():
+    """Trigger ML retraining for all current universe symbols."""
+    def _run():
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        import config as _cfg
+        import exchange.universe as u
+        from exchange.market_data import fetch_ohlcv
+        from core.indicators import enrich
+        from ml.signal_predictor import get_predictor
+        from ml.extrema_predictor import get_extrema_predictor
+        from ml.regime_classifier import get_regime_classifier
+
+        predictor = get_predictor()
+        extrema   = get_extrema_predictor()
+        regime    = get_regime_classifier()
+        st.set_ml_training(True, "Starting…")
+
+        symbols = u.get_watchlist()
+        regime_done = False
+        for i, sym in enumerate(symbols):
+            st.set_ml_training(True, f"[{i+1}/{len(symbols)}] Training {sym}…")
+            try:
+                df = fetch_ohlcv(sym, _cfg.TF_PRIMARY, limit=1000)
+                if df.empty or len(df) < 250:
+                    continue
+                df = enrich(df)
+                predictor.train(sym, df)
+                extrema.train(sym, df)
+                if not regime_done and sym == "BTC/USD":
+                    if regime.train(df):
+                        regime.save()
+                        regime_done = True
+            except Exception as e:
+                logger.warning("ML train error %s: %s", sym, e)
+        st.set_ml_training(False, "Done")
+
+    if st.get_ml_training()["active"]:
+        return jsonify({"error": "training already running"}), 409
+    threading.Thread(target=_run, daemon=True, name="ml-train-manual").start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/ml/training_status", methods=["GET"])
+def api_ml_training_status():
+    return jsonify(st.get_ml_training())
+
+
+# ── Auto-Tuner API ─────────────────────────────────────────────────────────────
+
+@app.route("/api/tuner/run", methods=["POST"])
+def api_tuner_run():
+    """Run Optuna parameter tuning on a symbol."""
+    body    = request.json or {}
+    symbol  = body.get("symbol", "BTC/USD")
+    days    = int(body.get("days", 90))
+    trials  = int(body.get("trials", 50))
+
+    if st.get_tuner()["active"]:
+        return jsonify({"error": "tuner already running"}), 409
+
+    def _run():
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from exchange.market_data import fetch_ohlcv
+        from core.indicators import enrich
+        from core.strategies import analyse
+        from ml.auto_tuner import tune_parameters
+
+        st.set_tuner(True, f"Fetching {symbol} data…", None)
+        try:
+            limit = min(days * 24 + 300, 1000)
+            df = fetch_ohlcv(symbol, "1h", limit=limit)
+            if df.empty or len(df) < 200:
+                st.set_tuner(False, "Not enough data", None)
+                return
+            df = enrich(df)
+
+            def progress(n, total, best):
+                st.set_tuner(True, f"Trial {n}/{total} · best Sharpe {best:.2f}", None)
+
+            result = tune_parameters(df, analyse, symbol, n_trials=trials,
+                                     progress_callback=progress)
+            st.set_tuner(False, "Complete", {
+                "symbol":       symbol,
+                "best_params":  result.best_params,
+                "best_sharpe":  result.best_sharpe,
+                "best_return":  result.best_return,
+                "n_trials":     result.n_trials,
+                "improvement":  result.improvement,
+            })
+        except Exception as e:
+            logger.error("Tuner failed: %s", e)
+            st.set_tuner(False, f"Error: {e}", None)
+
+    threading.Thread(target=_run, daemon=True, name="tuner").start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/tuner/status", methods=["GET"])
+def api_tuner_status():
+    return jsonify(st.get_tuner())
+
+
+@app.route("/api/tuner/apply", methods=["POST"])
+def api_tuner_apply():
+    """Apply the last tuning result to the running config."""
+    result = st.get_tuner().get("result")
+    if not result:
+        return jsonify({"error": "no tuning result to apply"}), 400
+    import config as _cfg
+    for k, v in result.get("best_params", {}).items():
+        if hasattr(_cfg, k):
+            setattr(_cfg, k, v)
+    return jsonify({"status": "applied", "params": result["best_params"]})
+
+
 # ── Backtest API ───────────────────────────────────────────────────────────────
 
 @app.route("/api/backtest", methods=["GET"])
@@ -511,6 +674,7 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
   <div class="tab active" onclick="switchTab('live')">📊 Live Trading</div>
   <div class="tab" onclick="switchTab('backtest')">🧪 Backtest</div>
   <div class="tab" onclick="switchTab('universe')">🌍 Universe</div>
+  <div class="tab" onclick="switchTab('ml')">🧠 Machine Learning</div>
 </div>
 
 <!-- ═══════════════════════════════ LIVE TAB ════════════════════════════════ -->
@@ -675,14 +839,78 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
 </main>
 </div><!-- /tab-universe -->
 
+<!-- ═══════════════════════════════ ML TAB ══════════════════════════════════ -->
+<div id="tab-ml" class="tab-panel">
+<main class="main">
+
+  <!-- ML models overview -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🧠 ML Models — Signal Predictor &amp; Extrema</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="last-update" id="mlTrainStatus">–</span>
+        <button class="btn btn-primary" id="mlTrainBtn" onclick="trainML()">⟳ Retrain All</button>
+      </div>
+    </div>
+    <div style="padding:12px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)">
+      Models predict the probability of a profitable trade (AUC) and proximity to local tops/bottoms (extrema).
+      Only models that beat random (AUC&nbsp;≥&nbsp;0.53) are used in live scoring.
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Symbol</th><th>Test AUC</th><th>Train AUC</th><th>Status</th>
+          <th>Extrema MAE</th><th>Features</th><th>Top Features</th><th>Trained</th>
+        </tr></thead>
+        <tbody id="mlBody"><tr><td colspan="8" class="empty">No models trained yet — click “Retrain All”.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Auto-tuner -->
+  <div class="card">
+    <div class="card-header"><h2>⚙️ Auto-Tuner — Optuna Parameter Optimisation</h2></div>
+    <div style="padding:12px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)">
+      Bayesian search over MIN_SIGNAL_SCORE, ATR multipliers, ADX &amp; volume thresholds — maximising backtested Sharpe ratio.
+    </div>
+    <div class="bt-form">
+      <label>Symbol
+        <select id="tunerSymbol" style="width:160px"></select>
+      </label>
+      <label>Days
+        <input id="tunerDays" type="number" value="90" min="14" max="365"/>
+      </label>
+      <label>Trials
+        <input id="tunerTrials" type="number" value="50" min="10" max="200"/>
+      </label>
+      <button class="btn btn-primary" id="tunerRunBtn" onclick="runTuner()" style="margin-bottom:1px">▶ Run Tuner</button>
+    </div>
+    <div class="bt-progress" id="tunerProgress">
+      <span class="spinner"></span><span id="tunerProgressText">Running…</span>
+    </div>
+    <div id="tunerResult" style="display:none;padding:16px">
+      <div class="bt-summary" id="tunerSummary"></div>
+      <div style="margin-top:12px">
+        <h3 style="font-size:13px;margin-bottom:8px">Suggested parameter changes</h3>
+        <pre id="tunerImprovement" style="background:var(--bg3);padding:12px;border-radius:6px;font-size:12px;white-space:pre-wrap;color:var(--text)"></pre>
+        <button class="btn btn-success" onclick="applyTuner()" style="margin-top:10px">✓ Apply These Parameters</button>
+        <span class="last-update" id="tunerApplied" style="margin-left:10px"></span>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div><!-- /tab-ml -->
+
 <script>
 // ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'backtest') loadBacktestState();
   if (name === 'universe') loadUniverseState();
+  if (name === 'ml')       loadMLState();
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -1378,6 +1606,130 @@ function makeClickable(tbodyId, symbolFn) {
     const sym = symbolFn(tr);
     if (sym) { tr.classList.add('clickable'); tr.onclick = () => openSymbolDrawer(sym); }
   });
+}
+
+// ── Machine Learning tab ────────────────────────────────────────────────────────
+let mlTrainPoll = null, tunerPoll = null;
+
+async function loadMLState() {
+  await populateTunerSymbols();
+  await refreshMLModels();
+  // resume polling if a job is already running
+  const ts = await (await fetch('/api/ml/training_status')).json();
+  if (ts.active) startMLTrainPoll();
+  const tu = await (await fetch('/api/tuner/status')).json();
+  if (tu.active) startTunerPoll();
+  if (tu.result) renderTunerResult(tu.result);
+}
+
+async function populateTunerSymbols() {
+  try {
+    const d = await (await fetch('/api/universe')).json();
+    const sel = document.getElementById('tunerSymbol');
+    const cur = sel.value;
+    sel.innerHTML = (d.symbols || ['BTC/USD']).map(s => `<option value="${s}">${s}</option>`).join('');
+    if (cur) sel.value = cur;
+  } catch(_){}
+}
+
+async function refreshMLModels() {
+  try {
+    const d = await (await fetch('/api/ml/status')).json();
+    const tbody = document.getElementById('mlBody');
+    const models = d.models || [];
+    if (!models.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No models trained yet — click “Retrain All”.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = models.map(m => {
+      const aucColor = m.auc_usable ? 'var(--green)' : 'var(--red)';
+      const statusBadge = m.auc_usable
+        ? '<span class="badge badge-long">USED</span>'
+        : '<span class="badge badge-short">IGNORED &lt;0.53</span>';
+      const topFeat = Object.keys(m.top_features || {}).slice(0,3).map(f=>f.replace(/_/g,' ')).join(', ') || '—';
+      const mae = m.extrema_mae != null ? fmt(m.extrema_mae,3) : '—';
+      const maeColor = m.extrema_usable ? 'var(--green)' : 'var(--muted)';
+      return `<tr>
+        <td><strong>${m.symbol}</strong></td>
+        <td class="mono" style="color:${aucColor};font-weight:700">${fmt(m.test_auc,3)}</td>
+        <td class="mono" style="color:var(--muted)">${fmt(m.train_auc,3)}</td>
+        <td>${statusBadge}</td>
+        <td class="mono" style="color:${maeColor}">${mae}</td>
+        <td>${m.n_features}</td>
+        <td style="font-size:11px;color:var(--muted)">${topFeat}</td>
+        <td style="font-size:11px;color:var(--muted)">${m.trained_at ? fmtTime(m.trained_at).slice(0,16) : '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e){ console.error('ML status error', e); }
+}
+
+async function trainML() {
+  document.getElementById('mlTrainBtn').disabled = true;
+  document.getElementById('mlTrainStatus').textContent = 'Starting…';
+  await fetch('/api/ml/train', {method:'POST'});
+  startMLTrainPoll();
+}
+
+function startMLTrainPoll() {
+  if (mlTrainPoll) clearInterval(mlTrainPoll);
+  document.getElementById('mlTrainBtn').disabled = true;
+  mlTrainPoll = setInterval(async () => {
+    const s = await (await fetch('/api/ml/training_status')).json();
+    document.getElementById('mlTrainStatus').textContent = s.progress || '';
+    if (!s.active) {
+      clearInterval(mlTrainPoll); mlTrainPoll = null;
+      document.getElementById('mlTrainBtn').disabled = false;
+      document.getElementById('mlTrainStatus').textContent = 'Done';
+      refreshMLModels();
+    }
+  }, 2000);
+}
+
+// ── Auto-tuner ──────────────────────────────────────────────────────────────────
+async function runTuner() {
+  const symbol = document.getElementById('tunerSymbol').value;
+  const days   = parseInt(document.getElementById('tunerDays').value)||90;
+  const trials = parseInt(document.getElementById('tunerTrials').value)||50;
+  document.getElementById('tunerRunBtn').disabled = true;
+  document.getElementById('tunerProgress').classList.add('visible');
+  document.getElementById('tunerResult').style.display = 'none';
+  document.getElementById('tunerProgressText').textContent = 'Starting…';
+  await fetch('/api/tuner/run', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({symbol, days, trials})});
+  startTunerPoll();
+}
+
+function startTunerPoll() {
+  if (tunerPoll) clearInterval(tunerPoll);
+  document.getElementById('tunerRunBtn').disabled = true;
+  document.getElementById('tunerProgress').classList.add('visible');
+  tunerPoll = setInterval(async () => {
+    const s = await (await fetch('/api/tuner/status')).json();
+    document.getElementById('tunerProgressText').textContent = s.progress || 'Running…';
+    if (!s.active) {
+      clearInterval(tunerPoll); tunerPoll = null;
+      document.getElementById('tunerRunBtn').disabled = false;
+      document.getElementById('tunerProgress').classList.remove('visible');
+      if (s.result) renderTunerResult(s.result);
+    }
+  }, 1500);
+}
+
+function renderTunerResult(r) {
+  document.getElementById('tunerResult').style.display = 'block';
+  document.getElementById('tunerSummary').innerHTML = `
+    <div class="bt-stat"><div class="l">Symbol</div><div class="v">${r.symbol}</div></div>
+    <div class="bt-stat"><div class="l">Best Sharpe</div><div class="v ${r.best_sharpe>=0?'pos':'neg'}">${fmt(r.best_sharpe,2)}</div></div>
+    <div class="bt-stat"><div class="l">Best Return</div><div class="v ${r.best_return>=0?'pos':'neg'}">${r.best_return>=0?'+':''}${fmt(r.best_return,1)}%</div></div>
+    <div class="bt-stat"><div class="l">Trials</div><div class="v">${r.n_trials}</div></div>
+  `;
+  document.getElementById('tunerImprovement').textContent = r.improvement || 'No changes';
+}
+
+async function applyTuner() {
+  const res = await (await fetch('/api/tuner/apply', {method:'POST'})).json();
+  document.getElementById('tunerApplied').textContent =
+    res.status === 'applied' ? '✓ Applied to running config' : (res.error||'failed');
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
