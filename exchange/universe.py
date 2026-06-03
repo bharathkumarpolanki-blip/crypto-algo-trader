@@ -207,8 +207,10 @@ def refresh_universe(force: bool = False) -> list[str]:
             new_watchlist.append(sym)
 
     if btc_regime == "bear":
-        logger.warning("BTC is in BEAR regime — universe restricted to BTC/ETH/SOL only")
-        # In bear market only trade the 3 most liquid anchors
+        # In a bear market deliberately restrict to the liquid anchors.
+        # This is INTENTIONAL — do not treat the short list as a failure.
+        logger.warning("BTC is in BEAR regime — universe restricted to anchors only: %s",
+                       ", ".join(new_watchlist))
     else:
         for _, sym in roc_scores:
             if sym not in new_watchlist:
@@ -216,9 +218,10 @@ def refresh_universe(force: bool = False) -> list[str]:
             if len(new_watchlist) >= TOP_N_COINS:
                 break
 
-    # Fallback: if we got fewer than 5, keep previous watchlist
-    if len(new_watchlist) < 5:
-        logger.warning("Universe refresh returned too few coins — keeping previous list")
+    # Genuine-failure fallback: only if we got NOTHING (API error returned no
+    # anchors at all). A deliberate bear-market shortlist is NOT a failure.
+    if len(new_watchlist) == 0:
+        logger.warning("Universe refresh returned no coins (API failure) — keeping previous list")
         return get_watchlist()
 
     with _lock:

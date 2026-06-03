@@ -1,6 +1,7 @@
 """Telegram notifications — rich trade and signal messages."""
 
 import logging
+import threading
 import requests
 from datetime import datetime, timezone
 import config
@@ -8,22 +9,34 @@ import config
 logger = logging.getLogger(__name__)
 
 
-def send_telegram(message: str) -> bool:
-    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
-        return False
+def _send_blocking(message: str) -> None:
+    """Actual HTTP POST — runs in a background thread so it never blocks trading."""
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     try:
         resp = requests.post(url, json={
             "chat_id":    config.TELEGRAM_CHAT_ID,
             "text":       message,
             "parse_mode": "Markdown",
-        }, timeout=10)
+        }, timeout=8)
         if resp.status_code != 200:
             logger.warning("Telegram error %s: %s", resp.status_code, resp.text[:200])
-        return resp.status_code == 200
+    except requests.exceptions.Timeout:
+        logger.debug("Telegram send timed out (non-blocking, ignored)")
     except Exception as e:
-        logger.warning("Telegram send failed: %s", e)
+        logger.debug("Telegram send failed (non-blocking): %s", e)
+
+
+def send_telegram(message: str) -> bool:
+    """
+    Fire-and-forget Telegram send. Dispatches the HTTP call on a daemon thread
+    so a slow or timed-out Telegram API never stalls the trading loop.
+    Returns True if a send was dispatched (not whether it ultimately succeeded).
+    """
+    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         return False
+    threading.Thread(target=_send_blocking, args=(message,),
+                     daemon=True, name="telegram-send").start()
+    return True
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
