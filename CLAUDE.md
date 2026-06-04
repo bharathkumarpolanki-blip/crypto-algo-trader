@@ -61,7 +61,19 @@ ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 - [x] Decoupled fast position-monitoring loop (POSITION_CHECK_SECONDS, own thread)
 - [x] Circuit breaker (risk/circuit_breaker.py — 4 trip conditions, auto-cooldown)
 - [x] Partial-fill handling on live orders (place_market_order_filled)
-- [ ] Stop-limit gap-through safety net (limit may not fill in a fast gap)
+- [x] Stop-limit gap-through safety net (force market exit if price gaps past stop)
+
+All originally-identified professional-grade gaps are now closed. Keep raising
+the bar — add new gaps here as they're discovered.
+
+## Gap-through safety net (professional-grade)
+
+In a violent move price can blow past BOTH the stop trigger and the stop-limit's
+limit price without filling (no buyers at the limit). The fast monitor detects
+this: if price has moved STOP_GAP_BUFFER_PCT (0.5%) beyond the stop but the
+stop-limit order is still open, it cancels both protective orders and fires a
+MARKET exit (always fills; accepts slippage to guarantee the position closes).
+Telegram alert on trigger. Only active in live+protected mode.
 
 ## Order fill handling (professional-grade)
 

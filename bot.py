@@ -496,11 +496,37 @@ def _check_open_positions_impl() -> None:
                                 already_filled_on_exchange=True)
                 continue
 
+            ticker = fetch_ticker(symbol)
+            cur = ticker.get("last") or ticker.get("close", pos.entry_price) if ticker else None
+
+            # ── Gap-through safety net ────────────────────────────────────────
+            # In a violent move, price can blow past BOTH the stop trigger and the
+            # stop-limit's limit price without filling (no buyers at the limit).
+            # The stop order sits open while the position bleeds. Detect that —
+            # price gapped beyond the stop by a buffer but the stop hasn't filled —
+            # and force a MARKET exit (always fills; accepts slippage to guarantee out).
+            if cur is not None:
+                gap = getattr(config, "STOP_GAP_BUFFER_PCT", 0.5) / 100.0
+                gapped = (
+                    (pos.side == "long"  and cur <= pos.stop_loss * (1 - gap)) or
+                    (pos.side == "short" and cur >= pos.stop_loss * (1 + gap))
+                )
+                if gapped:
+                    logger.error("⚠️ GAP-THROUGH on %s — price %.6f blew past stop %.6f "
+                                 "but stop-limit unfilled. Forcing MARKET exit.",
+                                 symbol, cur, pos.stop_loss)
+                    try:
+                        notify_error(f"⚠️ {symbol} gapped through its stop — forcing "
+                                     f"market exit to guarantee the position closes.")
+                    except Exception:
+                        pass
+                    # _close_position cancels both protective orders, then market-exits.
+                    _close_position(symbol, pos, cur, "stop_gap")
+                    continue
+
             # Trailing stop: if price moved enough to raise the stop, cancel the
             # old exchange stop and re-place it at the new (tighter) level.
-            ticker = fetch_ticker(symbol)
             if ticker:
-                cur = ticker.get("last") or ticker.get("close", pos.entry_price)
                 old_stop = pos.stop_loss
                 risk_mgr.update_position(symbol, cur)   # updates trailing internally
                 if abs(pos.stop_loss - old_stop) > 1e-9:

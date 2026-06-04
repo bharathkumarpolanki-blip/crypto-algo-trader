@@ -101,6 +101,9 @@ DRY_RUN = True                 # True = never place real orders; just log signal
 USE_EXCHANGE_STOPS = True      # place real stop/TP orders on the exchange (live).
                                # The exchange enforces them instantly even if the
                                # bot is slow/down. DRY_RUN simulates them.
+STOP_GAP_BUFFER_PCT = 0.5      # if price gaps this % beyond the stop but the
+                               # stop-limit hasn't filled → force a market exit
+                               # (gap-through safety net)
 
 # ── Circuit breaker (kill switch) ─────────────────────────────────────────────
 CB_ENABLED                = True   # master switch
