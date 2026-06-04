@@ -60,8 +60,19 @@ ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 - [x] Exchange-side stop-loss/take-profit orders (stop-limit + limit, manual OCO)
 - [x] Decoupled fast position-monitoring loop (POSITION_CHECK_SECONDS, own thread)
 - [x] Circuit breaker (risk/circuit_breaker.py — 4 trip conditions, auto-cooldown)
-- [ ] Partial-fill handling on live orders
+- [x] Partial-fill handling on live orders (place_market_order_filled)
 - [ ] Stop-limit gap-through safety net (limit may not fill in a fast gap)
+
+## Order fill handling (professional-grade)
+
+- `place_market_order_filled()` places a market order and confirms the ACTUAL
+  fill: polls fetch_order until closed, returns real filled qty + average price.
+- Entry: position qty + stops are sized to the ACTUAL filled quantity, and the
+  stop/target are recomputed from the real average fill price (preserves R:R).
+  filled<=0 → no position opened. Partial → Telegram alert + size to filled.
+- Exit: uses the real exit fill price for P&L; a partial close retries the
+  remainder once, then alerts if it still can't fully flatten.
+- DRY_RUN simulates a full fill at the current ticker price.
 
 ## Circuit breaker (kill switch) — risk/circuit_breaker.py
 

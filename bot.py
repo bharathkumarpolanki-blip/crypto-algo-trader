@@ -30,7 +30,8 @@ import ui.state as st
 import exchange.universe as universe
 from exchange.market_data import (fetch_ohlcv, fetch_ticker, place_order, check_auth,
                                    place_stop_limit_order, place_take_profit_order,
-                                   cancel_order, get_order_status)
+                                   cancel_order, get_order_status,
+                                   place_market_order_filled)
 from core.indicators import enrich
 from core.strategies import analyse, SignalResult
 from risk.risk_manager import RiskManager
@@ -262,19 +263,50 @@ def try_open_trade(signal: SignalResult) -> None:
 
     qty  = usdt / entry
     side = "buy" if signal.direction == "long" else "sell"
-    order = place_order(signal.symbol, side, qty)
-    if order is None:
+
+    # Place the entry order and confirm the ACTUAL fill (handles partial fills
+    # and price slippage). Sizing stops or P&L on requested-but-unfilled qty is a bug.
+    fill = place_market_order_filled(signal.symbol, side, qty)
+    if fill["filled"] <= 0:
+        logger.warning("Entry not filled for %s (status=%s) — no position opened",
+                       signal.symbol, fill["status"])
         return
+
+    # Use what ACTUALLY executed: real filled qty + real average price.
+    filled_qty  = fill["filled"]
+    fill_price  = fill["average"] or entry
+    entry       = fill_price                  # P&L now measured from the true fill
+
+    # Recompute stop/target from the actual fill price so the R:R holds.
+    atr = signal.atr
+    if signal.direction == "long":
+        stop = round(fill_price - config.ATR_STOP_MULTIPLIER   * atr, 6)
+        tp   = round(fill_price + config.ATR_TARGET_MULTIPLIER * atr, 6)
+    else:
+        stop = round(fill_price + config.ATR_STOP_MULTIPLIER   * atr, 6)
+        tp   = round(fill_price - config.ATR_TARGET_MULTIPLIER * atr, 6)
+
+    if fill["partial"]:
+        logger.warning("Partial entry on %s: filled %.6f / %.6f — sizing stops to filled qty",
+                       signal.symbol, filled_qty, qty)
+        try:
+            notify_error(f"⚠️ Partial fill on {signal.symbol}: got "
+                         f"{filled_qty:.4f}/{qty:.4f}. Position + stops sized to actual fill.")
+        except Exception:
+            pass
+
+    qty = filled_qty   # everything downstream uses the real filled quantity
 
     risk_mgr.open_position(
         symbol=signal.symbol, side=signal.direction,
         entry=entry, qty=qty, stop=stop, take_profit=tp,
-        atr=signal.atr, order_id=order.get("id", ""),
+        atr=signal.atr, order_id=fill.get("id", ""),
     )
 
     # ── Place exchange-side protective orders (live mode) ─────────────────────
     # Professional-grade: the exchange enforces the stop/target instantly, even
     # if the bot is slow or down. In DRY_RUN these are simulated (no real order).
+    # Sized to the ACTUAL filled quantity so the stop can't over/under-sell.
     _place_protective_orders(signal.symbol, signal.direction, qty, stop, tp)
 
     trade_record = {
@@ -369,13 +401,27 @@ def _close_position(symbol: str, pos, exit_price: float, reason: str,
             cancel_order(pos.stop_order_id, symbol)
             cancel_order(pos.tp_order_id, symbol)
 
-    pnl = risk_mgr.close_position(symbol, exit_price, reason)
-    breaker.record_trade_result(pnl)   # feed consecutive-loss tracking
-
     # Place the exit order only if the exchange hasn't already filled one
     if not already_filled_on_exchange:
         exit_side = "sell" if pos.side == "long" else "buy"
-        place_order(symbol, exit_side, pos.qty)
+        fill = place_market_order_filled(symbol, exit_side, pos.qty)
+        # Use the real exit fill price for accurate P&L
+        if fill["average"]:
+            exit_price = fill["average"]
+        # Partial exit: retry the remaining quantity once so we fully flatten.
+        remaining = pos.qty - fill["filled"]
+        if not config.DRY_RUN and remaining > pos.qty * 0.005:
+            logger.warning("Partial exit on %s — %.6f left, retrying", symbol, remaining)
+            retry = place_market_order_filled(symbol, exit_side, remaining)
+            if pos.qty - fill["filled"] - retry["filled"] > pos.qty * 0.01:
+                try:
+                    notify_error(f"⚠️ {symbol} did not fully close — "
+                                 f"{remaining:.4f} may remain. Check the exchange.")
+                except Exception:
+                    pass
+
+    pnl = risk_mgr.close_position(symbol, exit_price, reason)
+    breaker.record_trade_result(pnl)   # feed consecutive-loss tracking
 
     trade_record = {
         "time":   datetime.now(timezone.utc).isoformat(),

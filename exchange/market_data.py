@@ -217,6 +217,79 @@ def place_order(symbol: str, side: str, amount: float,
         return None
 
 
+def place_market_order_filled(symbol: str, side: str, amount: float,
+                              poll_attempts: int = 5,
+                              poll_delay: float = 0.6) -> dict:
+    """
+    Place a MARKET order and confirm the ACTUAL fill.
+
+    Market orders can partially fill (thin book) or fill at a different average
+    price than the last trade. Sizing protective stops or computing P&L on the
+    *requested* amount instead of the *filled* amount is a real bug — so this
+    returns what truly executed.
+
+    Returns a normalised dict:
+      {"id", "filled", "average", "status", "partial", "requested"}
+        filled    : actual base quantity that executed
+        average   : volume-weighted average fill price
+        status    : "closed" (fully/partially done) | "rejected" | "none"
+        partial   : True if filled < requested (within tolerance)
+        requested : the amount we asked for
+
+    DRY_RUN: simulates a full fill at the current ticker price.
+    """
+    if config.DRY_RUN:
+        tkr   = fetch_ticker(symbol)
+        price = (tkr.get("last") or tkr.get("close") or 0.0) if tkr else 0.0
+        logger.info("[DRY RUN] MARKET %s %s %.6f @ ~%.6f (simulated full fill)",
+                    side.upper(), symbol, amount, price)
+        return {"id": "DRY_RUN", "filled": amount, "average": price,
+                "status": "closed", "partial": False, "requested": amount}
+
+    ex = get_exchange()
+    try:
+        order = ex.create_order(symbol, "market", side, amount)
+    except Exception as e:
+        logger.error("Market order REJECTED %s %s %.6f: %s", side, symbol, amount, e)
+        return {"id": "", "filled": 0.0, "average": 0.0,
+                "status": "rejected", "partial": False, "requested": amount}
+
+    order_id = order.get("id", "")
+    filled   = float(order.get("filled") or 0.0)
+    average  = float(order.get("average") or order.get("price") or 0.0)
+    status   = order.get("status", "")
+
+    # Market orders usually fill instantly, but poll a few times to get the
+    # final filled/average if the create response was incomplete.
+    attempts = 0
+    while order_id and status != "closed" and filled < amount and attempts < poll_attempts:
+        time.sleep(poll_delay)
+        attempts += 1
+        fetched = get_order_status(order_id, symbol)
+        if not fetched:
+            continue
+        filled  = float(fetched.get("filled")  or filled)
+        average = float(fetched.get("average") or fetched.get("price") or average)
+        status  = fetched.get("status", status)
+        if status in ("closed", "canceled"):
+            break
+
+    tol     = amount * 0.995          # treat ≥99.5% as effectively full
+    partial = 0.0 < filled < tol
+
+    if filled <= 0:
+        logger.error("Market order %s %s did not fill (status=%s)", side, symbol, status)
+        return {"id": order_id, "filled": 0.0, "average": average,
+                "status": "none", "partial": False, "requested": amount}
+
+    if partial:
+        logger.warning("PARTIAL FILL %s %s — filled %.6f / requested %.6f @ avg %.6f",
+                       side.upper(), symbol, filled, amount, average)
+
+    return {"id": order_id, "filled": filled, "average": average,
+            "status": "closed", "partial": partial, "requested": amount}
+
+
 # ── Protective (exchange-side) orders ─────────────────────────────────────────
 # Professional-grade: the exchange enforces stop/target instantly, 24/7, even if
 # the bot is slow, sleeping or crashed. Coinbase has no native OCO, so the bot
