@@ -109,7 +109,16 @@ STOP_GAP_BUFFER_PCT = 0.5      # if price gaps this % beyond the stop but the
 # Coinbase Advanced Trade taker fee per side (volume <$10k tier ≈ 0.6%).
 # Lower it as your 30-day volume grows. A round trip costs ~2× this.
 FEE_RATE_PCT          = 0.6    # taker fee per side, %
+MAKER_FEE_RATE_PCT    = 0.4    # maker fee per side, % (lower — for limit entries)
 ACCOUNT_FOR_FEES      = True   # subtract fees from realised P&L (true net)
+
+# ── Entry order type ──────────────────────────────────────────────────────────
+# "taker"  : market order — fills instantly, higher fee (FEE_RATE_PCT)
+# "maker"  : post-only limit at the bid/ask — lower fee, but may not fill
+ENTRY_ORDER_TYPE         = "taker"   # default reliable; switch to "maker" to cut fees
+ENTRY_FILL_TIMEOUT_SEC   = 45        # how long to wait for a maker order to fill
+ENTRY_FALLBACK_TO_TAKER  = True      # if maker doesn't fill in time → market order
+                                     # (False = skip the trade, pure maker-only)
 
 # Profit-floor gate: only OPEN a trade if hitting its take-profit would net at
 # least this much AFTER round-trip fees. Trades that can't clear fees + a real

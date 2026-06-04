@@ -290,6 +290,85 @@ def place_market_order_filled(symbol: str, side: str, amount: float,
             "status": "closed", "partial": partial, "requested": amount}
 
 
+def place_maker_entry(symbol: str, side: str, amount: float,
+                      timeout_sec: float = 45.0,
+                      poll_delay: float = 3.0) -> dict:
+    """
+    Place a POST-ONLY limit order that rests as a MAKER (lower fee than a market
+    taker order). Waits up to timeout_sec for it to fill.
+
+    Maker placement: limit BUY at the best bid, limit SELL at the best ask — this
+    sits on the book without crossing the spread, so it's guaranteed maker.
+    Post-only means the exchange rejects it if it would take liquidity.
+
+    Returns the same normalised dict as place_market_order_filled, plus
+    "maker": True/False. If it can't fill in time the caller decides whether to
+    fall back to a taker market order or skip the trade.
+
+    DRY_RUN: simulates a maker fill at the resting price.
+    """
+    # Find the resting price from the order book
+    ob = fetch_order_book(symbol, depth=5)
+    try:
+        best_bid = ob["bids"][0][0]
+        best_ask = ob["asks"][0][0]
+    except Exception:
+        # No book → fall back signal; caller handles
+        return {"id": "", "filled": 0.0, "average": 0.0, "status": "none",
+                "partial": False, "requested": amount, "maker": False}
+
+    rest_price = best_bid if side == "buy" else best_ask
+
+    if config.DRY_RUN:
+        logger.info("[DRY RUN] MAKER %s %s %.6f @ %.6f (post-only, simulated fill)",
+                    side.upper(), symbol, amount, rest_price)
+        return {"id": "DRY_RUN_MAKER", "filled": amount, "average": rest_price,
+                "status": "closed", "partial": False, "requested": amount, "maker": True}
+
+    ex = get_exchange()
+    try:
+        order = ex.create_order(symbol, "limit", side, amount, rest_price,
+                                {"postOnly": True})
+    except Exception as e:
+        logger.warning("Maker order rejected %s %s @ %.6f: %s", side, symbol, rest_price, e)
+        return {"id": "", "filled": 0.0, "average": 0.0, "status": "rejected",
+                "partial": False, "requested": amount, "maker": True}
+
+    order_id = order.get("id", "")
+    filled   = float(order.get("filled") or 0.0)
+    average  = float(order.get("average") or rest_price)
+
+    # Poll until filled or timeout
+    waited = 0.0
+    while order_id and filled < amount * 0.995 and waited < timeout_sec:
+        time.sleep(poll_delay)
+        waited += poll_delay
+        fetched = get_order_status(order_id, symbol)
+        if not fetched:
+            continue
+        filled  = float(fetched.get("filled")  or filled)
+        average = float(fetched.get("average") or average)
+        if fetched.get("status") in ("closed", "canceled"):
+            break
+
+    # Timed out with the order still resting → cancel the unfilled remainder
+    if filled < amount * 0.995:
+        cancel_order(order_id, symbol)
+
+    tol     = amount * 0.995
+    partial = 0.0 < filled < tol
+
+    if filled <= 0:
+        logger.info("Maker order %s %s did not fill within %.0fs", side, symbol, timeout_sec)
+        return {"id": order_id, "filled": 0.0, "average": average, "status": "unfilled",
+                "partial": False, "requested": amount, "maker": True}
+
+    logger.info("MAKER FILL %s %s — %.6f / %.6f @ %.6f (lower fee)",
+                side.upper(), symbol, filled, amount, average)
+    return {"id": order_id, "filled": filled, "average": average, "status": "closed",
+            "partial": partial, "requested": amount, "maker": True}
+
+
 # ── Protective (exchange-side) orders ─────────────────────────────────────────
 # Professional-grade: the exchange enforces stop/target instantly, 24/7, even if
 # the bot is slow, sleeping or crashed. Coinbase has no native OCO, so the bot

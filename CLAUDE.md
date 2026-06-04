@@ -67,7 +67,17 @@ All originally-identified professional-grade gaps are now closed. Keep raising
 the bar — add new gaps here as they're discovered.
 
 - [x] Fee accounting + profit-floor gate + daily profit lock
-- [ ] Limit/maker-order entries to cut fee drag (~0.6% taker → lower maker)
+- [x] Limit/maker-order entries to cut fee drag (post-only + taker fallback)
+
+## Maker entries (fee reduction)
+
+ENTRY_ORDER_TYPE = "taker" (default) | "maker". Maker places a post-only limit at
+the best bid (buy) / best ask (sell) — guaranteed maker fee (MAKER_FEE_RATE_PCT
+~0.4% vs taker ~0.6%). May not fill → waits ENTRY_FILL_TIMEOUT_SEC, then either
+falls back to a market/taker order (ENTRY_FALLBACK_TO_TAKER=True) or skips.
+place_maker_entry() in market_data; _place_entry_order() dispatches in bot.py.
+The profit-floor gate still uses the conservative taker rate, so maker fills only
+make trades MORE profitable than the gate assumes.
 
 ## Fees & profit discipline (IMPORTANT — honest economics)
 

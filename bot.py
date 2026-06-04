@@ -31,7 +31,7 @@ import exchange.universe as universe
 from exchange.market_data import (fetch_ohlcv, fetch_ticker, place_order, check_auth,
                                    place_stop_limit_order, place_take_profit_order,
                                    cancel_order, get_order_status,
-                                   place_market_order_filled)
+                                   place_market_order_filled, place_maker_entry)
 from core.indicators import enrich
 from core.strategies import analyse, SignalResult
 from risk.risk_manager import RiskManager
@@ -232,6 +232,35 @@ def _update_circuit_breaker(signals: list[SignalResult]) -> None:
         logger.debug("Circuit breaker update skipped: %s", e)
 
 
+def _place_entry_order(symbol: str, side: str, qty: float) -> dict:
+    """
+    Place the entry order honoring ENTRY_ORDER_TYPE.
+
+    "taker" → market order (instant, higher fee).
+    "maker" → post-only limit at bid/ask (lower fee). If it doesn't fill within
+              ENTRY_FILL_TIMEOUT_SEC, either fall back to a market order
+              (ENTRY_FALLBACK_TO_TAKER) or skip (filled=0).
+    """
+    order_type = getattr(config, "ENTRY_ORDER_TYPE", "taker")
+    if order_type != "maker":
+        return place_market_order_filled(symbol, side, qty)
+
+    timeout = getattr(config, "ENTRY_FILL_TIMEOUT_SEC", 45)
+    fill = place_maker_entry(symbol, side, qty, timeout_sec=timeout)
+
+    if fill["filled"] > 0:
+        return fill   # maker fill (full or partial) — best case, lower fee
+
+    # Maker didn't fill in time
+    if getattr(config, "ENTRY_FALLBACK_TO_TAKER", True):
+        logger.info("Maker entry on %s didn't fill — falling back to market (taker)", symbol)
+        return place_market_order_filled(symbol, side, qty)
+
+    logger.info("Maker entry on %s didn't fill and taker fallback disabled — skipping", symbol)
+    return {"id": "", "filled": 0.0, "average": 0.0, "status": "unfilled",
+            "partial": False, "requested": qty}
+
+
 def _daily_profit_locked() -> bool:
     """
     True if realised NET profit for the current UTC day has reached
@@ -302,7 +331,7 @@ def try_open_trade(signal: SignalResult) -> None:
 
     # Place the entry order and confirm the ACTUAL fill (handles partial fills
     # and price slippage). Sizing stops or P&L on requested-but-unfilled qty is a bug.
-    fill = place_market_order_filled(signal.symbol, side, qty)
+    fill = _place_entry_order(signal.symbol, side, qty)
     if fill["filled"] <= 0:
         logger.warning("Entry not filled for %s (status=%s) — no position opened",
                        signal.symbol, fill["status"])
