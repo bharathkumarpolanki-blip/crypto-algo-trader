@@ -69,6 +69,16 @@ the bar — add new gaps here as they're discovered.
 - [x] Fee accounting + profit-floor gate + daily profit lock
 - [x] Limit/maker-order entries to cut fee drag (post-only + taker fallback)
 
+## ML performance (training speed)
+
+Training was ~45s/model and ran twice (no concurrency guard). Fixed:
+- `_ml_training_lock` in bot.py — only ONE training pass at a time (no 2× waste).
+- feature_builder LAG_CANDLES [1,2,3,5,10]→[1,3], PERIODS dropped 28: 328→154
+  features. Faster AND less overfitting (test AUC now stable ~0.55 vs wild swings).
+- permutation_importance: n_repeats 3→1, subsample 120, gated by
+  ML_COMPUTE_IMPORTANCE (importance is dashboard-only, not needed for trading).
+Result: signal model train 45s → ~6s (7×). AUC unchanged/healthier.
+
 ## Maker entries (fee reduction)
 
 ENTRY_ORDER_TYPE = "taker" (default) | "maker". Maker places a post-only limit at

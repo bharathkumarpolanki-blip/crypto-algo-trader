@@ -24,8 +24,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ── Lookback periods to compute indicators over ────────────────────────────────
-PERIODS = [7, 14, 21, 28]          # short → long
-LAG_CANDLES = [1, 2, 3, 5, 10]    # how many candles back to shift features
+PERIODS = [7, 14, 21]              # short → long (dropped 28 — redundant with 21)
+LAG_CANDLES = [1, 3]              # how many candles back to shift features.
+                                  # Fewer lags = far fewer columns → faster training
+                                  # AND less overfitting (was [1,2,3,5,10] → 328 feats).
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:

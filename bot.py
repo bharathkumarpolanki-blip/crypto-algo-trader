@@ -96,13 +96,22 @@ def _signal_to_dict(sig: SignalResult) -> dict:
 
 # ── ML model training ─────────────────────────────────────────────────────────
 
+_ml_training_lock = threading.Lock()   # ensures only ONE training pass at a time
+
+
 def _train_ml_models(symbols: list[str]) -> None:
     """
     Train ML signal predictor + regime classifier for each symbol.
-    Runs in background threads — fully non-blocking.
-    Fetches a long history (1h candles) for training.
+    Runs in a single background thread — fully non-blocking.
+    Guarded so concurrent calls can't double-train (CPU waste).
     """
+    if _ml_training_lock.locked():
+        logger.info("ML training already in progress — skipping duplicate request")
+        return
+
     def _worker():
+        if not _ml_training_lock.acquire(blocking=False):
+            return
         try:
             from ml.signal_predictor import get_predictor
             from ml.regime_classifier import get_regime_classifier
@@ -144,6 +153,8 @@ def _train_ml_models(symbols: list[str]) -> None:
             logger.info("ML model training pass complete (%d symbols)", len(symbols))
         except Exception as e:
             logger.error("ML training worker failed: %s", e)
+        finally:
+            _ml_training_lock.release()
 
     t = threading.Thread(target=_worker, daemon=True, name="ml-training")
     t.start()

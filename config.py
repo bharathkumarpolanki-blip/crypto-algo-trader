@@ -87,6 +87,8 @@ ML_SCALE_POSITIONS  = True     # scale position size by ML confidence
 ML_MIN_CONFIDENCE   = 0.60     # below this, ML adds no directional weight
 ML_RETRAIN_HOURS    = 12       # retrain models every N hours
 ML_TRAIN_ON_START   = True     # train all models when bot starts
+ML_COMPUTE_IMPORTANCE = True   # compute feature importance (dashboard only).
+                               # Set False to make training even faster.
 
 # ── Telegram notifications ────────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")

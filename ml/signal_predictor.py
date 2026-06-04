@@ -179,21 +179,23 @@ class SignalPredictor:
             logger.info("ML trained %s | train_AUC=%.3f  test_AUC=%.3f  features=%d  samples=%d",
                         symbol, train_auc, test_auc, data.X_train.shape[1], data.n_train)
 
-            # Permutation importance on test set (top features only — limit cost)
+            # Permutation importance (dashboard display only) — EXPENSIVE, so it's
+            # optional and cheap by default. n_repeats=1 + small subsample.
             importances: dict[str, float] = {}
             try:
-                from sklearn.inspection import permutation_importance
-                # Subsample to keep it fast
-                n = min(200, len(data.X_test))
-                pi = permutation_importance(
-                    model, data.X_test[:n], data.y_test[:n],
-                    n_repeats=3, random_state=42, scoring="roc_auc", n_jobs=-1,
-                )
-                importances = {
-                    name: float(imp)
-                    for name, imp in zip(data.feature_names, pi.importances_mean)
-                    if imp > 0
-                }
+                import config as _cfg
+                if getattr(_cfg, "ML_COMPUTE_IMPORTANCE", True):
+                    from sklearn.inspection import permutation_importance
+                    n = min(120, len(data.X_test))
+                    pi = permutation_importance(
+                        model, data.X_test[:n], data.y_test[:n],
+                        n_repeats=1, random_state=42, scoring="roc_auc", n_jobs=-1,
+                    )
+                    importances = {
+                        name: float(imp)
+                        for name, imp in zip(data.feature_names, pi.importances_mean)
+                        if imp > 0
+                    }
             except Exception as e:
                 logger.debug("Permutation importance skipped: %s", e)
 
