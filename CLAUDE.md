@@ -66,6 +66,23 @@ ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 All originally-identified professional-grade gaps are now closed. Keep raising
 the bar — add new gaps here as they're discovered.
 
+- [x] Fee accounting + profit-floor gate + daily profit lock
+- [ ] Limit/maker-order entries to cut fee drag (~0.6% taker → lower maker)
+
+## Fees & profit discipline (IMPORTANT — honest economics)
+
+Coinbase taker fee ≈ 0.6%/side (~1.2% round trip). On a $200 position that's
+~$2.40 — price must move ~1.7% just to net $1. A trade can go the right way and
+still lose to fees. So:
+- close_position subtracts round_trip_fees → all P&L shown is TRUE NET.
+- Profit-floor gate (MIN_NET_PROFIT_USD): the bot refuses any trade whose target
+  can't net ≥ $1 after fees. Fewer but genuinely-worth-it trades.
+- Daily profit lock (DAILY_PROFIT_TARGET_USD, 0=off): once up X for the UTC day,
+  stop opening new trades.
+- NEVER promise profit on every run — impossible. The bot improves the odds of
+  green runs; it cannot guarantee them. Biggest lever to hit the user's profit
+  goal is reducing fees (limit/maker entries, bigger account, volume tiers).
+
 ## Gap-through safety net (professional-grade)
 
 In a violent move price can blow past BOTH the stop trigger and the stop-limit's

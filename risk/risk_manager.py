@@ -217,18 +217,32 @@ class RiskManager:
 
         return {"action": "hold", "unrealized_pnl": pos.unrealized_pnl}
 
+    @staticmethod
+    def round_trip_fees(entry: float, exit_price: float, qty: float) -> float:
+        """Total exchange fees for a full round trip (entry fill + exit fill)."""
+        if not getattr(config, "ACCOUNT_FOR_FEES", True):
+            return 0.0
+        rate = getattr(config, "FEE_RATE_PCT", 0.6) / 100.0
+        return (entry * qty + exit_price * qty) * rate
+
     def close_position(self, symbol: str, exit_price: float, reason: str = "manual") -> float:
         pos = self.positions.get(symbol)
         if pos is None:
             return 0.0
         if pos.side == "long":
-            pnl = (exit_price - pos.entry_price) * pos.qty
+            gross = (exit_price - pos.entry_price) * pos.qty
         else:
-            pnl = (pos.entry_price - exit_price) * pos.qty
+            gross = (pos.entry_price - exit_price) * pos.qty
+
+        # Net of exchange fees — this is the TRUE profit/loss.
+        fees = self.round_trip_fees(pos.entry_price, exit_price, pos.qty)
+        pnl  = gross - fees
+
         pos.status = "closed"
-        self._total_capital += pnl   # update running capital
-        logger.info("Position closed: %s @ %.6f  Reason=%s  PnL=%.4f USDT  Capital=%.2f",
-                    symbol, exit_price, reason, pnl, self._total_capital)
+        self._total_capital += pnl   # update running capital (net)
+        logger.info("Position closed: %s @ %.6f  Reason=%s  gross=%.4f fees=%.4f "
+                    "NET=%.4f USDT  Capital=%.2f",
+                    symbol, exit_price, reason, gross, fees, pnl, self._total_capital)
         import risk.position_store as position_store; position_store.save(self.positions)
         return pnl
 

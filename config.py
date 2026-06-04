@@ -105,6 +105,22 @@ STOP_GAP_BUFFER_PCT = 0.5      # if price gaps this % beyond the stop but the
                                # stop-limit hasn't filled → force a market exit
                                # (gap-through safety net)
 
+# ── Fees & profit discipline ──────────────────────────────────────────────────
+# Coinbase Advanced Trade taker fee per side (volume <$10k tier ≈ 0.6%).
+# Lower it as your 30-day volume grows. A round trip costs ~2× this.
+FEE_RATE_PCT          = 0.6    # taker fee per side, %
+ACCOUNT_FOR_FEES      = True   # subtract fees from realised P&L (true net)
+
+# Profit-floor gate: only OPEN a trade if hitting its take-profit would net at
+# least this much AFTER round-trip fees. Trades that can't clear fees + a real
+# profit are rejected. Raising this = fewer but higher-quality trades.
+MIN_NET_PROFIT_USD    = 1.0    # minimum net $ profit a trade's target must clear
+
+# Daily profit lock: once realised net profit for the UTC day reaches this,
+# stop opening NEW trades for the rest of the day (lock in gains, don't give
+# them back). Open positions keep running with their stops. 0 = disabled.
+DAILY_PROFIT_TARGET_USD = 0.0
+
 # ── Circuit breaker (kill switch) ─────────────────────────────────────────────
 CB_ENABLED                = True   # master switch
 CB_MAX_DAILY_LOSS_PCT     = 6.0    # halt new entries if equity drops 6% in a UTC day

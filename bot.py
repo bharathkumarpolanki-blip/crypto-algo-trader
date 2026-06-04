@@ -232,6 +232,23 @@ def _update_circuit_breaker(signals: list[SignalResult]) -> None:
         logger.debug("Circuit breaker update skipped: %s", e)
 
 
+def _daily_profit_locked() -> bool:
+    """
+    True if realised NET profit for the current UTC day has reached
+    DAILY_PROFIT_TARGET_USD — in which case we stop opening new trades and
+    lock in the day's gains. 0 = feature disabled.
+    """
+    target = getattr(config, "DAILY_PROFIT_TARGET_USD", 0.0)
+    if target <= 0:
+        return False
+    today = datetime.now(timezone.utc).date().isoformat()
+    day_net = 0.0
+    for t in st.get()["trade_history"]:
+        if t.get("action") == "close" and (t.get("time", "")[:10] == today):
+            day_net += (t.get("pnl") or 0.0)
+    return day_net >= target
+
+
 def try_open_trade(signal: SignalResult) -> None:
     if signal.direction not in ("long", "short"):
         return
@@ -252,6 +269,12 @@ def try_open_trade(signal: SignalResult) -> None:
         logger.info("Cannot open %s: %s", signal.symbol, reason)
         return
 
+    # Daily profit lock — once up enough for the day, stop opening new risk.
+    if _daily_profit_locked():
+        logger.info("Daily profit target reached — not opening %s (locking gains)",
+                    signal.symbol)
+        return
+
     entry = signal.entry_price
     stop  = signal.stop_loss
     tp    = signal.take_profit
@@ -263,6 +286,19 @@ def try_open_trade(signal: SignalResult) -> None:
 
     qty  = usdt / entry
     side = "buy" if signal.direction == "long" else "sell"
+
+    # ── Profit-floor gate ─────────────────────────────────────────────────────
+    # Only take the trade if hitting its take-profit would net ≥ MIN_NET_PROFIT_USD
+    # AFTER round-trip fees. A 'winner' that can't clear fees is a real loser.
+    gross_at_tp = abs(tp - entry) * qty
+    fees        = risk_mgr.round_trip_fees(entry, tp, qty)
+    net_at_tp   = gross_at_tp - fees
+    min_net     = getattr(config, "MIN_NET_PROFIT_USD", 1.0)
+    if net_at_tp < min_net:
+        logger.info("Skip %s — target nets only $%.2f after $%.2f fees (need ≥ $%.2f). "
+                    "Move too small to be worth the fees.",
+                    signal.symbol, net_at_tp, fees, min_net)
+        return
 
     # Place the entry order and confirm the ACTUAL fill (handles partial fills
     # and price slippage). Sizing stops or P&L on requested-but-unfilled qty is a bug.
