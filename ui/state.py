@@ -54,6 +54,8 @@ _state: dict[str, Any] = {
     # ── Auth health ───────────────────────────────────────────────────────────
     "auth_ok":           None,           # None = unchecked, True/False after check
     "auth_msg":          "",
+    # ── Circuit breaker ───────────────────────────────────────────────────────
+    "circuit_breaker":   {"status": "active", "reason": ""},
 }
 
 
@@ -178,6 +180,18 @@ def set_auth_status(ok: bool, msg: str) -> None:
     with _lock:
         _state["auth_ok"]  = ok
         _state["auth_msg"] = msg
+
+
+# ── Circuit breaker state ─────────────────────────────────────────────────────
+
+def set_circuit_breaker(status: dict) -> None:
+    with _lock:
+        _state["circuit_breaker"] = status
+
+
+def get_circuit_breaker() -> dict:
+    with _lock:
+        return dict(_state["circuit_breaker"])
 
 
 def get_backtest() -> dict:

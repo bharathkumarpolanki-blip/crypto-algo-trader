@@ -59,9 +59,19 @@ ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 
 - [x] Exchange-side stop-loss/take-profit orders (stop-limit + limit, manual OCO)
 - [x] Decoupled fast position-monitoring loop (POSITION_CHECK_SECONDS, own thread)
-- [ ] Circuit breaker (halt all trading on extreme market-wide drawdown)
+- [x] Circuit breaker (risk/circuit_breaker.py — 4 trip conditions, auto-cooldown)
 - [ ] Partial-fill handling on live orders
 - [ ] Stop-limit gap-through safety net (limit may not fill in a fast gap)
+
+## Circuit breaker (kill switch) — risk/circuit_breaker.py
+
+Halts NEW entries (existing positions keep their stops — no panic-sell). Four
+independent trip conditions, any one trips: daily loss (CB_MAX_DAILY_LOSS_PCT),
+drawdown from high-water mark (CB_MAX_DRAWDOWN_PCT), consecutive losses
+(CB_MAX_CONSECUTIVE_LOSSES), market crash (BTC down CB_MARKET_CRASH_PCT in the
+lookback window — correlation protection). Auto-resets after CB_COOLDOWN_HOURS;
+manual reset/trip from the dashboard. Telegram alert on trip + reset. Status
+shown as a red dashboard banner. Checked in try_open_trade via breaker.can_trade().
 
 ## Exit handling design (professional-grade)
 

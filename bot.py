@@ -34,6 +34,7 @@ from exchange.market_data import (fetch_ohlcv, fetch_ticker, place_order, check_
 from core.indicators import enrich
 from core.strategies import analyse, SignalResult
 from risk.risk_manager import RiskManager
+from risk.circuit_breaker import get_breaker
 from notifications.notifier import (notify_signal, notify_trade,
                        notify_trade_open, notify_trade_close,
                        notify_bot_started, notify_bot_stopped,
@@ -52,6 +53,7 @@ logging.basicConfig(
 logger = logging.getLogger("bot")
 
 risk_mgr = RiskManager()
+breaker  = get_breaker()             # circuit breaker / kill switch
 _positions_lock = threading.Lock()   # guards position close/monitor against races
 
 
@@ -192,6 +194,43 @@ def scan_symbol(symbol: str) -> SignalResult | None:
 
 # ── Trade execution ───────────────────────────────────────────────────────────
 
+def _btc_crash_change() -> float | None:
+    """
+    BTC % change over the crash lookback window (1h candles).
+    Used by the circuit breaker for correlation protection.
+    Returns None if data unavailable.
+    """
+    try:
+        bars = max(2, int(getattr(config, "CB_CRASH_LOOKBACK_HOURS", 4)) + 1)
+        df = fetch_ohlcv("BTC/USD", "1h", limit=bars)
+        if df.empty or len(df) < 2:
+            return None
+        first = df["close"].iloc[0]
+        last  = df["close"].iloc[-1]
+        return (last - first) / first * 100
+    except Exception:
+        return None
+
+
+def _update_circuit_breaker(signals: list[SignalResult]) -> None:
+    """Feed the breaker current equity, unrealised P&L and BTC crash signal."""
+    try:
+        summary    = risk_mgr.summary()
+        equity     = summary["capital_usdt"]
+        unrealised = sum(p.get("pnl", 0) for p in summary["open_details"])
+        # Reuse BTC change from the scanned signals if present, else fetch
+        btc_change = None
+        for s in signals:
+            if s.symbol == "BTC/USD":
+                # ROC component already on the candle; fall back to dedicated fetch
+                break
+        btc_change = _btc_crash_change()
+        breaker.update(equity, unrealised, btc_change)
+        st.set_circuit_breaker(breaker.status())
+    except Exception as e:
+        logger.debug("Circuit breaker update skipped: %s", e)
+
+
 def try_open_trade(signal: SignalResult) -> None:
     if signal.direction not in ("long", "short"):
         return
@@ -199,6 +238,12 @@ def try_open_trade(signal: SignalResult) -> None:
         return
     if signal.risk_reward < 1.5:
         logger.info("Skipping %s — RR %.2f < 1.5", signal.symbol, signal.risk_reward)
+        return
+
+    # Circuit breaker gate — no NEW entries while halted
+    cb_ok, cb_reason = breaker.can_trade()
+    if not cb_ok:
+        logger.warning("Circuit breaker blocking entry on %s — %s", signal.symbol, cb_reason)
         return
 
     can_open, reason = risk_mgr.can_open(signal.symbol)
@@ -325,6 +370,7 @@ def _close_position(symbol: str, pos, exit_price: float, reason: str,
             cancel_order(pos.tp_order_id, symbol)
 
     pnl = risk_mgr.close_position(symbol, exit_price, reason)
+    breaker.record_trade_result(pnl)   # feed consecutive-loss tracking
 
     # Place the exit order only if the exchange hasn't already filled one
     if not already_filled_on_exchange:
@@ -541,6 +587,9 @@ def run() -> None:
     st.set_capital(config.TOTAL_CAPITAL_USDT, initial=True)
     st.set_bot_status("running")
 
+    # Arm the circuit breaker with starting equity
+    breaker.initialise(config.TOTAL_CAPITAL_USDT)
+
     logger.info("Dashboard live at http://localhost:8081")
     logger.info("Dynamic universe active — refreshes every 1h, currently %d symbols",
                 len(universe.get_watchlist()))
@@ -578,6 +627,9 @@ def run() -> None:
 
         # Push signals to web state
         st.set_signals([_signal_to_dict(s) for s in signals])
+
+        # ── Update circuit breaker BEFORE opening trades ──────────────────────
+        _update_circuit_breaker(signals)
 
         for sig in signals:
             try_open_trade(sig)

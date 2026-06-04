@@ -293,6 +293,36 @@ def api_ml_training_status():
     return jsonify(st.get_ml_training())
 
 
+# ── Circuit Breaker API ─────────────────────────────────────────────────────────
+
+@app.route("/api/breaker", methods=["GET"])
+def api_breaker_status():
+    return jsonify(st.get_circuit_breaker())
+
+
+@app.route("/api/breaker/reset", methods=["POST"])
+def api_breaker_reset():
+    try:
+        from risk.circuit_breaker import get_breaker
+        get_breaker().manual_reset()
+        st.set_circuit_breaker(get_breaker().status())
+        return jsonify({"status": "reset"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/breaker/trip", methods=["POST"])
+def api_breaker_trip():
+    """Manual emergency halt — operator kill switch."""
+    try:
+        from risk.circuit_breaker import get_breaker
+        get_breaker().manual_trip("manual halt from dashboard")
+        st.set_circuit_breaker(get_breaker().status())
+        return jsonify({"status": "tripped"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Auto-Tuner API ─────────────────────────────────────────────────────────────
 
 @app.route("/api/tuner/run", methods=["POST"])
@@ -605,6 +635,10 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
 </header>
 
 <div id="authBanner" style="display:none;padding:10px 24px;font-size:13px;font-weight:600;text-align:center"></div>
+<div id="cbBanner" style="display:none;padding:10px 24px;font-size:13px;font-weight:700;text-align:center;background:rgba(248,81,73,.18);color:var(--red);border-bottom:1px solid var(--red)">
+  🛑 <span id="cbBannerText">CIRCUIT BREAKER TRIPPED</span>
+  <button class="btn btn-success" style="margin-left:12px;padding:3px 10px" onclick="resetBreaker()">Reset &amp; Resume</button>
+</div>
 <div class="ticker-bar" id="tickerBar">Loading…</div>
 
 <!-- ═══════════════════ SYMBOL DETAIL DRAWER ════════════════════════════════ -->
@@ -1080,10 +1114,28 @@ async function fetchState() {
     updateStatus(data); updateStats(data); updateEquityChart(data);
     updatePositions(data); updateSignals(data);
     updateTrades(tdata.trades||[],tdata.total||0);
+    updateBreaker(data.circuit_breaker);
   } catch(e){
     document.getElementById('statusText').textContent='Error';
     document.getElementById('statusDot').className='dot stopped';
   }
+}
+function updateBreaker(cb){
+  const banner=document.getElementById('cbBanner');
+  if(!banner) return;
+  if(cb && cb.status==='tripped'){
+    banner.style.display='block';
+    let extra='';
+    if(cb.cooldown_hours) extra=` · auto-resumes in ≤${cb.cooldown_hours}h`;
+    document.getElementById('cbBannerText').textContent=
+      'CIRCUIT BREAKER TRIPPED — new trades halted. Reason: '+(cb.reason||'—')+extra;
+  } else {
+    banner.style.display='none';
+  }
+}
+async function resetBreaker(){
+  await fetch('/api/breaker/reset',{method:'POST'});
+  fetchState();
 }
 function changePage(d){
   const pages=Math.ceil(totalTrades/PAGE_SIZE);

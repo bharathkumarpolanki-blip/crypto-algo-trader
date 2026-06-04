@@ -101,3 +101,12 @@ DRY_RUN = True                 # True = never place real orders; just log signal
 USE_EXCHANGE_STOPS = True      # place real stop/TP orders on the exchange (live).
                                # The exchange enforces them instantly even if the
                                # bot is slow/down. DRY_RUN simulates them.
+
+# ── Circuit breaker (kill switch) ─────────────────────────────────────────────
+CB_ENABLED                = True   # master switch
+CB_MAX_DAILY_LOSS_PCT     = 6.0    # halt new entries if equity drops 6% in a UTC day
+CB_MAX_DRAWDOWN_PCT       = 15.0   # halt if equity falls 15% from its peak
+CB_MAX_CONSECUTIVE_LOSSES = 5      # halt after 5 stop-outs in a row
+CB_MARKET_CRASH_PCT       = 8.0    # halt if BTC drops 8% in the crash lookback window
+CB_CRASH_LOOKBACK_HOURS   = 4      # window for the BTC-crash check (uses 1h candles)
+CB_COOLDOWN_HOURS         = 6      # auto-resume this long after a trip
