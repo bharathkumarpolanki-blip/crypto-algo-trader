@@ -69,6 +69,21 @@ the bar — add new gaps here as they're discovered.
 - [x] Fee accounting + profit-floor gate + daily profit lock
 - [x] Limit/maker-order entries to cut fee drag (post-only + taker fallback)
 
+## Backtest correctness (IMPORTANT)
+
+The backtest had 3 bugs that made it misleading:
+1. Candle cap: `min(days*24+300, 1000)` capped ALL backtests to ~41 days.
+   Removed — now fetches full requested history (Coinbase has ~180-190 days of
+   1h candles; reports the ACTUAL tested span honestly when shorter than asked).
+2. Look-ahead bias: analyse() ran ML models trained on RECENT data against
+   HISTORICAL candles. Added `include_ml` param to analyse(); backtest passes
+   include_ml=False so ML never contaminates backtest results.
+3. No fees: backtest P&L was gross. Now subtracts round-trip taker fees
+   (_round_trip_fees) so backtest P&L is TRUE NET, matching live.
+Backtest is rule-based + candlesticks only (the honest, leak-free signal set).
+Live trading adds ML on top — its benefit can only be proven by forward/paper
+testing, never by backtest (would be look-ahead).
+
 ## ML performance (training speed)
 
 Training was ~45s/model and ran twice (no concurrency guard). Fixed:

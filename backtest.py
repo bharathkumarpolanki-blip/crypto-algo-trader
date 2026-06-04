@@ -32,6 +32,17 @@ logging.basicConfig(level=logging.WARNING)
 MIN_RR = 2.0   # only enter if R:R >= 2.0 (matches ATR_TARGET/ATR_STOP = 4/1.5 ≈ 2.67)
 
 
+def _round_trip_fees(entry: float, exit_price: float, qty: float) -> float:
+    """
+    Round-trip taker fees (entry + exit), matching the live bot's fee accounting.
+    Uses the conservative taker rate so backtest net P&L isn't optimistic.
+    """
+    if not getattr(config, "ACCOUNT_FOR_FEES", True):
+        return 0.0
+    rate = getattr(config, "FEE_RATE_PCT", 0.6) / 100.0
+    return (entry * qty * rate) + (exit_price * qty * rate)
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--symbol",    default="BTC/USD")
@@ -46,13 +57,16 @@ def parse_args():
 def run_backtest(symbol: str, timeframe: str, days: int,
                  capital: float, risk_pct: float, verbose: bool = True) -> dict:
 
-    # Fetch 1h data — need more candles than days*24 so indicators warm up
-    limit_1h = min(days * 24 + 300, 1000)
-    # Fetch 4h data for the trend gate
-    limit_4h = min(days * 6 + 100, 500)
+    # Fetch the full requested 1h history (+300 warm-up candles for indicators).
+    # No artificial 1000 cap — pagination fetches as much as the exchange has.
+    # NOTE: Coinbase only retains ~180-190 days of 1h candles, so longer requests
+    # are silently capped to what's actually available (reported honestly below).
+    limit_1h = days * 24 + 300
+    limit_4h = days * 6 + 100
 
     if verbose:
-        print(f"\nFetching {symbol} — {limit_1h} × 1h candles + {limit_4h} × 4h candles...")
+        print(f"\nFetching {symbol} — up to {limit_1h} × 1h candles "
+              f"+ {limit_4h} × {config.TF_TREND} candles...")
 
     df1h = fetch_ohlcv(symbol, "1h",            limit=limit_1h)
     df4h = fetch_ohlcv(symbol, config.TF_TREND, limit=limit_4h)
@@ -60,6 +74,13 @@ def run_backtest(symbol: str, timeframe: str, days: int,
     if df1h.empty or len(df1h) < 150:
         if verbose: print("Not enough 1h data.")
         return {}
+
+    # Honest reporting: how many days did we ACTUALLY get?
+    actual_days = (df1h.index[-1] - df1h.index[0]).days
+    if verbose and actual_days < days:
+        print(f"  ⚠️  Coinbase only has {actual_days} days of 1h history "
+              f"(requested {days}). Testing on {actual_days} days.")
+    days = actual_days   # report the real tested span, not the requested one
 
     df1h = enrich(df1h)
     df4h = enrich(df4h) if not df4h.empty else pd.DataFrame()
@@ -102,8 +123,11 @@ def run_backtest(symbol: str, timeframe: str, days: int,
 
             if hit_tp or hit_stop:
                 exit_price = target if hit_tp else stop
-                pnl = (exit_price - entry) * qty if trade_side == "long" \
-                      else (entry - exit_price) * qty
+                gross = (exit_price - entry) * qty if trade_side == "long" \
+                        else (entry - exit_price) * qty
+                # Subtract round-trip fees so backtest P&L is TRUE NET (like live).
+                fees  = _round_trip_fees(entry, exit_price, qty)
+                pnl   = gross - fees
                 curr_capital += pnl
                 reason = "TP" if hit_tp else "SL"
                 trades.append({
@@ -129,7 +153,8 @@ def run_backtest(symbol: str, timeframe: str, days: int,
             signal = analyse(
                 symbol, slice_1h,
                 df_trend=slice_4h if len(slice_4h) >= 60 else None,
-                include_sentiment=False,
+                include_sentiment=False,   # no live sentiment lookups in backtest
+                include_ml=False,          # no ML — avoids look-ahead bias
             )
 
             if (signal.direction in ("long", "short")
@@ -158,16 +183,18 @@ def run_backtest(symbol: str, timeframe: str, days: int,
                         trade_side = signal.direction
                         in_trade   = True
 
-    # Close any open trade at last price
+    # Force-close any trade still open when the backtest dataset ends.
+    # Crypto trades 24/7 (no end-of-day) — this is "end of test data", not EOD.
     if in_trade:
         last_price = df1h.iloc[-1]["close"]
-        pnl = (last_price - entry) * qty if trade_side == "long" else (entry - last_price) * qty
+        gross = (last_price - entry) * qty if trade_side == "long" else (entry - last_price) * qty
+        pnl   = gross - _round_trip_fees(entry, last_price, qty)
         curr_capital += pnl
         trades.append({
             "exit_time": str(df1h.index[-1])[:19],   # Timestamp → plain string
             "side": trade_side, "entry": entry,
             "exit": last_price, "pnl": pnl,
-            "reason": "EOD", "capital": curr_capital,
+            "reason": "end_of_test", "capital": curr_capital,
         })
         capital_curve.append(curr_capital)
 

@@ -475,7 +475,8 @@ _MAX_RAW_SCORE = 29.0   # +2 ML signal + 2 extrema components
 def analyse(symbol: str,
             df_primary: pd.DataFrame,
             df_trend: pd.DataFrame | None = None,
-            include_sentiment: bool = True) -> SignalResult:
+            include_sentiment: bool = True,
+            include_ml: bool = True) -> SignalResult:
     """
     Compute a composite signal score for `symbol`.
     df_primary = enriched 1h candles
@@ -523,18 +524,22 @@ def analyse(symbol: str,
     components["candle_patterns"] = _safe(cp_score)
     result.candle_patterns = cp_detail
 
-    # ── ML signal prediction (15th component) ─────────────────────────────────
-    # Gradient-boosting model predicts profitability; degrades to 0 if not ready.
-    ml_score, ml_detail = _get_ml_score(symbol, df_primary)
-    components["ml_signal"] = _safe(ml_score * config.ML_WEIGHT)
-    result.ml_prediction   = ml_detail
-    result.ml_confidence   = ml_detail.get("ml_confidence", 0.5)
+    # ── ML signal + extrema (components 15 & 16) ──────────────────────────────
+    # IMPORTANT: ML must be OFF in backtests — a model trained on recent data
+    # applied to historical candles is look-ahead bias and inflates results.
+    # include_ml=False (backtest) makes these components contribute 0.
+    if include_ml:
+        ml_score, ml_detail = _get_ml_score(symbol, df_primary)
+        components["ml_signal"] = _safe(ml_score * config.ML_WEIGHT)
+        result.ml_prediction   = ml_detail
+        result.ml_confidence   = ml_detail.get("ml_confidence", 0.5)
 
-    # ── Extrema prediction (16th component, FreqAI spice-rack concept) ─────────
-    # Predicts proximity to local tops/bottoms: bottom → buy, top → sell.
-    ex_score, ex_detail = _get_extrema_score(symbol, df_primary)
-    components["extrema"] = _safe(ex_score * config.EXTREMA_WEIGHT)
-    result.ml_prediction  = {**result.ml_prediction, **ex_detail}
+        ex_score, ex_detail = _get_extrema_score(symbol, df_primary)
+        components["extrema"] = _safe(ex_score * config.EXTREMA_WEIGHT)
+        result.ml_prediction  = {**result.ml_prediction, **ex_detail}
+    else:
+        components["ml_signal"] = 0.0
+        components["extrema"]   = 0.0
 
     # 4h trend contributes a weighted directional bonus
     if df_trend is not None and len(df_trend) >= 60:
