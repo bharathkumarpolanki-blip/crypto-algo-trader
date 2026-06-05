@@ -46,3 +46,17 @@ Professional-grade engineering: risk management, exchange-side stops, circuit
 breaker, partial-fill handling, ML infra, dashboard, AND — most valuable — an
 honest, leak-free, fee-accurate testing framework that PREVENTED a real-money
 loss by exposing that strategies which looked profitable were not.
+
+## Additional tests (timeframe + portfolio variations)
+
+| Test | Setup | Result | File |
+|---|---|---|---|
+| Daily full-engine portfolio | top-5 scoring, 3.5y, fees | **−18.9%, −75% DD (worse than hold)** | `tf_portfolio_backtest.py 1d` |
+| Weekly full-engine portfolio | top-5 scoring, data-thin | **0 trades (sat in cash)** | `tf_portfolio_backtest.py 1w` |
+
+KEY FINDING: the sophisticated 16-component signal engine on DAILY bars LOST
+money and had a WORSE drawdown than buy & hold — while the dumb one-line
+"price > 200d SMA" rule was the only non-loser. More analysis made it WORSE.
+Complexity is the enemy. Tested across 1h / 1d / 1w, single-pick and top-N
+portfolio, momentum and full-engine — the conclusion is identical every time:
+no tradeable edge exists for retail here. Hold BTC/ETH (optional 200d filter).
