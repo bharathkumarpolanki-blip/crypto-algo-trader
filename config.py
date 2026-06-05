@@ -126,6 +126,9 @@ ENTRY_FALLBACK_TO_TAKER  = True      # if maker doesn't fill in time → market 
 # least this much AFTER round-trip fees. Trades that can't clear fees + a real
 # profit are rejected. Raising this = fewer but higher-quality trades.
 MIN_NET_PROFIT_USD    = 1.0    # minimum net $ profit a trade's target must clear
+MIN_WIN_FEE_MULTIPLE  = 3.0    # target's gross win must be ≥ this × round-trip fee.
+                               # The single biggest fee-discipline lever: forces the
+                               # bot to only take trades whose reward dwarfs the fee.
 
 # Daily profit lock: once realised net profit for the UTC day reaches this,
 # stop opening NEW trades for the rest of the day (lock in gains, don't give

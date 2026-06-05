@@ -98,15 +98,23 @@ def run_backtest(symbol: str, timeframe: str, days: int,
     consecutive_losses = 0
 
     for i in range(window, len(df1h)):
-        slice_1h = df1h.iloc[:i]
+        # Cap the slice to the last 300 candles. Indicators are already computed
+        # in df1h (enriched once), so the precomputed values at the last row are
+        # correct; the few scorers that scan the slice (Bollinger rolling, pivots)
+        # only need the recent window. Avoids O(n²) growth on long backtests.
+        slice_1h = df1h.iloc[max(0, i - 300):i]
         current  = df1h.iloc[i]
         price    = current["close"]
 
-        # Map current 1h timestamp → most recent 4h slice
+        # Map current 1h timestamp → most recent higher-tf slice.
+        # df4h is ALREADY enriched once above; its indicators are causal
+        # (EMA/RSI/MACD/etc. use only past+current), so slicing gives the same
+        # values as re-enriching — but ~1000× faster (no O(n²) re-enrich).
         ts_1h = df1h.index[i]
         if not df4h.empty:
             slice_4h = df4h[df4h.index <= ts_1h]
-            slice_4h = enrich(slice_4h) if len(slice_4h) >= 60 else pd.DataFrame()
+            if len(slice_4h) < 60:
+                slice_4h = pd.DataFrame()
         else:
             slice_4h = pd.DataFrame()
 
@@ -176,10 +184,22 @@ def run_backtest(symbol: str, timeframe: str, days: int,
                     risk_usdt     = curr_capital * (risk_pct / 100)
                     risk_per_unit = abs(price - fresh_stop)
                     if risk_per_unit > 0:
+                        qty = risk_usdt / risk_per_unit
+
+                        # Profit-floor gate (parity with live bot): only take the
+                        # trade if hitting target nets ≥ MIN_NET_PROFIT_USD AND the
+                        # gross win is a healthy multiple of the round-trip fee.
+                        gross_at_tp = abs(fresh_target - price) * qty
+                        fee_at_tp   = _round_trip_fees(price, fresh_target, qty)
+                        net_at_tp   = gross_at_tp - fee_at_tp
+                        min_net     = getattr(config, "MIN_NET_PROFIT_USD", 1.0)
+                        fee_mult    = getattr(config, "MIN_WIN_FEE_MULTIPLE", 2.0)
+                        if net_at_tp < min_net or gross_at_tp < fee_at_tp * fee_mult:
+                            continue   # target can't meaningfully beat fees — skip
+
                         entry      = price
                         stop       = fresh_stop
                         target     = fresh_target
-                        qty        = risk_usdt / risk_per_unit
                         trade_side = signal.direction
                         in_trade   = True
 
