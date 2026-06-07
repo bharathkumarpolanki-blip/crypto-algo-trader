@@ -143,3 +143,21 @@ CB_MAX_CONSECUTIVE_LOSSES = 5      # halt after 5 stop-outs in a row
 CB_MARKET_CRASH_PCT       = 8.0    # halt if BTC drops 8% in the crash lookback window
 CB_CRASH_LOOKBACK_HOURS   = 4      # window for the BTC-crash check (uses 1h candles)
 CB_COOLDOWN_HOURS         = 6      # auto-resume this long after a trip
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SMA200 DAILY TREND STRATEGY  (sma_bot.py — the simple, tested-OK approach)
+# ══════════════════════════════════════════════════════════════════════════════
+# Rule: hold a coin while its daily close is above its 200-day SMA; move to cash
+# when it drops below. Equal-weight across coins currently in uptrend. This is
+# the ONLY active approach our research endorsed — it doesn't beat buy & hold on
+# return, but it roughly halves the drawdown. Shares DRY_RUN with the main bot.
+SMA_SYMBOLS      = ["BTC/USD", "ETH/USD"]   # quality assets only
+SMA_PERIOD       = 200                       # trend filter length (days)
+SMA_CHECK_HOURS  = 6                         # how often to re-check (daily candle
+                                             # only changes once/day; 6h catches it)
+SMA_ALERT_ONLY   = True                      # True = only Telegram alerts, no trades
+                                             # (safest). False = actually trade it.
+SMA_BUFFER_PCT   = 0.5                       # require price this % above/below the
+                                             # SMA to flip — avoids whipsaw on tiny
+                                             # crossings right at the line.
