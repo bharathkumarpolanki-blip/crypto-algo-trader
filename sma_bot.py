@@ -63,18 +63,35 @@ def save_state(state: dict) -> None:
         logger.warning("Could not save state: %s", e)
 
 
-# ── Signal: is each coin above its 200-day SMA? ───────────────────────────────
+# ── Signal: daily 200-SMA  AND  (optional) weekly 30-SMA regime gate ──────────
+
+def _weekly_uptrend(daily_df) -> tuple[bool, float]:
+    """
+    Resample daily → weekly and check the weekly trend (close > 30-week SMA).
+    Returns (is_up, pct_above). The slow-timeframe macro gate.
+    """
+    wk = daily_df["close"].resample("1W").last().dropna()
+    wp = config.SMA_WEEKLY_PERIOD
+    if len(wk) < wp + 1:
+        return True, 0.0   # not enough weekly history → don't block (neutral)
+    wsma = wk.rolling(wp).mean().iloc[-1]
+    wclose = wk.iloc[-1]
+    return bool(wclose > wsma), float((wclose - wsma) / wsma * 100)
+
 
 def evaluate() -> dict:
     """
-    Return {symbol: {"uptrend": bool, "close": float, "sma": float, "pct": float}}
-    pct = how far price is above(+)/below(-) the SMA, in %.
+    Per symbol: {"uptrend", "close", "sma", "pct", "weekly_up", "weekly_pct"}
+    uptrend = daily close > 200d SMA  AND  (if enabled) weekly close > 30wk SMA.
     """
     out = {}
     period = config.SMA_PERIOD
     buf    = config.SMA_BUFFER_PCT / 100.0
+    use_wk = getattr(config, "SMA_USE_WEEKLY_GATE", False)
+    # Need enough daily history for BOTH the 200-day SMA and ~30 weeks of resample
+    need = max(period + 60, config.SMA_WEEKLY_PERIOD * 7 + 60)
     for sym in config.SMA_SYMBOLS:
-        df = fetch_ohlcv(sym, "1d", limit=period + 60)
+        df = fetch_ohlcv(sym, "1d", limit=need)
         if df.empty or len(df) < period + 1:
             logger.warning("Not enough daily data for %s (have %d, need %d)",
                            sym, len(df), period + 1)
@@ -82,9 +99,16 @@ def evaluate() -> dict:
         close = float(df["close"].iloc[-1])
         sma   = float(df["close"].rolling(period).mean().iloc[-1])
         pct   = (close - sma) / sma * 100
-        # Require a buffer beyond the line to flip (anti-whipsaw)
-        uptrend = close > sma * (1 + buf)
-        out[sym] = {"uptrend": uptrend, "close": close, "sma": sma, "pct": pct}
+        daily_up = close > sma * (1 + buf)
+
+        weekly_up, weekly_pct = (True, 0.0)
+        if use_wk:
+            weekly_up, weekly_pct = _weekly_uptrend(df)
+
+        # Top-down confluence: BOTH the daily trend AND the weekly regime must be up
+        uptrend = daily_up and weekly_up
+        out[sym] = {"uptrend": uptrend, "close": close, "sma": sma, "pct": pct,
+                    "daily_up": daily_up, "weekly_up": weekly_up, "weekly_pct": weekly_pct}
     return out
 
 
@@ -162,9 +186,19 @@ def print_status(signals: dict, state: dict) -> None:
     print(f"  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print(f"{'='*58}")
     for s, v in signals.items():
-        state_str = "🟢 UPTREND (hold)" if v["uptrend"] else "🔴 DOWN (cash)"
-        print(f"  {s:9s}  ${v['close']:>10,.2f}  vs SMA ${v['sma']:>10,.2f}  "
-              f"{v['pct']:+5.1f}%   {state_str}")
+        state_str = "🟢 UPTREND (hold)" if v["uptrend"] else "🔴 CASH"
+        wk = ""
+        if getattr(config, "SMA_USE_WEEKLY_GATE", False):
+            wk = f"  | wk {'↑' if v.get('weekly_up') else '↓'}{v.get('weekly_pct',0):+.0f}%"
+        # Show WHY it's cash: daily below, weekly below, or both
+        why = ""
+        if not v["uptrend"]:
+            flags = []
+            if not v.get("daily_up", True):  flags.append("daily<200d")
+            if not v.get("weekly_up", True): flags.append("weekly<30wk")
+            why = f"  ({', '.join(flags)})" if flags else ""
+        print(f"  {s:9s}  ${v['close']:>10,.2f}  vs 200dSMA ${v['sma']:>10,.2f}  "
+              f"{v['pct']:+5.1f}%{wk}   {state_str}{why}")
     held = list(state["holdings"].keys())
     print(f"{'-'*58}")
     print(f"  Currently {'flagged to hold' if config.SMA_ALERT_ONLY else 'holding'}: "

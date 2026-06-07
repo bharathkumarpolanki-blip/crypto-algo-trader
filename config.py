@@ -161,3 +161,9 @@ SMA_ALERT_ONLY   = True                      # True = only Telegram alerts, no t
 SMA_BUFFER_PCT   = 0.5                       # require price this % above/below the
                                              # SMA to flip — avoids whipsaw on tiny
                                              # crossings right at the line.
+# Weekly macro-regime gate (top-down multi-timeframe, done right):
+# only hold when the WEEKLY trend is also up. Coinbase has no native weekly
+# candles, so we resample daily → weekly and use the 30-week SMA (the classic
+# Weinstein stage-analysis trend filter). Slow TF sets direction; daily times it.
+SMA_USE_WEEKLY_GATE = True
+SMA_WEEKLY_PERIOD   = 30                      # weeks (30-week SMA ≈ long-term weekly trend)
