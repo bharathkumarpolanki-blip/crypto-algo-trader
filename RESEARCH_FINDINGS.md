@@ -60,3 +60,26 @@ money and had a WORSE drawdown than buy & hold — while the dumb one-line
 Complexity is the enemy. Tested across 1h / 1d / 1w, single-pick and top-N
 portfolio, momentum and full-engine — the conclusion is identical every time:
 no tradeable edge exists for retail here. Hold BTC/ETH (optional 200d filter).
+
+## Breakout / Retest / Floor strategies (daily, long-only, fees)
+
+Tested at user request — the popular price-action strategies.
+
+| Strategy | BTC return | ETH return | vs Buy&Hold |
+|---|---|---|---|
+| Buy & Hold | +188% (Calmar 2.45) | +152% (Calmar 1.92) | — |
+| Donchian breakout | −15% | +107% | lost on both |
+| Breakout + retest | −31% (10% win) | −55% (**0% win**) | lost badly |
+| Support floor bounce | −57% | −20% | lost on both |
+
+KEY FINDING: every breakout/retest/floor strategy lost to buy & hold; most lost
+money outright. Breakout+retest had a 0–10% win rate — the "fakeout" problem made
+visible. Support/resistance levels are the most-watched lines on the chart, so
+they are exactly where stop-hunts and fakeouts concentrate; retail breakout
+buyers become exit liquidity. File: `breakout_backtest.py`.
+
+## FINAL VERDICT (all approaches tested)
+1h scalping · daily/weekly full-engine · momentum rotation · best-of-many-coins ·
+breakout/retest/floor — EVERY approach loses to simply holding BTC. The pattern
+never broke. No retail TA strategy has a tradeable edge here. The only endorsed
+active tool is the SMA200 daily filter (sma_bot.py) — drawdown reduction, not alpha.
