@@ -323,6 +323,74 @@ def api_breaker_trip():
         return jsonify({"error": str(e)}), 500
 
 
+# ── SMA Trend strategy API ──────────────────────────────────────────────────────
+
+@app.route("/api/sma/status", methods=["GET"])
+def api_sma_status():
+    """Live SMA200 (+weekly) status per coin."""
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        import config as _cfg
+        import sma_bot
+        signals = sma_bot.evaluate()
+        rows = []
+        for sym, v in signals.items():
+            rows.append({
+                "symbol":     sym,
+                "close":      round(v["close"], 4),
+                "sma":        round(v["sma"], 4),
+                "pct":        round(v["pct"], 2),
+                "daily_up":   v.get("daily_up", v["uptrend"]),
+                "weekly_up":  v.get("weekly_up", True),
+                "weekly_pct": round(v.get("weekly_pct", 0), 2),
+                "hold":       v["uptrend"],
+            })
+        mode = "alert-only" if getattr(_cfg, "SMA_ALERT_ONLY", True) else \
+               ("paper" if _cfg.DRY_RUN else "live")
+        return jsonify({
+            "period":      getattr(_cfg, "SMA_PERIOD", 200),
+            "weekly_gate": getattr(_cfg, "SMA_USE_WEEKLY_GATE", False),
+            "weekly_period": getattr(_cfg, "SMA_WEEKLY_PERIOD", 30),
+            "mode":        mode,
+            "rows":        rows,
+        })
+    except Exception as e:
+        logger.error("SMA status failed: %s", e)
+        return jsonify({"error": str(e), "rows": []}), 500
+
+
+@app.route("/api/sma/backtest", methods=["POST"])
+def api_sma_backtest():
+    """Run the SMA portfolio backtest in the background."""
+    body  = request.json or {}
+    years = float(body.get("years", 3))
+    cap   = float(body.get("capital", 1000))
+
+    if st.get_sma_backtest().get("status") == "running":
+        return jsonify({"error": "already running"}), 409
+
+    def _run():
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        import sma_bot
+        st.set_sma_backtest({"status": "running", "result": None})
+        try:
+            res = sma_bot.backtest_sma(years=years, capital=cap)
+            st.set_sma_backtest({"status": "done", "result": res})
+        except Exception as e:
+            logger.error("SMA backtest failed: %s", e)
+            st.set_sma_backtest({"status": "error", "result": {"error": str(e)}})
+
+    threading.Thread(target=_run, daemon=True, name="sma-backtest").start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/sma/backtest_status", methods=["GET"])
+def api_sma_backtest_status():
+    return jsonify(st.get_sma_backtest())
+
+
 # ── Auto-Tuner API ─────────────────────────────────────────────────────────────
 
 @app.route("/api/tuner/run", methods=["POST"])
@@ -723,6 +791,7 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
   <div class="tab" onclick="switchTab('backtest')">🧪 Backtest</div>
   <div class="tab" onclick="switchTab('universe')">🌍 Universe</div>
   <div class="tab" onclick="switchTab('ml')">🧠 Machine Learning</div>
+  <div class="tab" onclick="switchTab('sma')">📈 SMA Trend</div>
 </div>
 
 <!-- ═══════════════════════════════ LIVE TAB ════════════════════════════════ -->
@@ -950,15 +1019,120 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
 </main>
 </div><!-- /tab-ml -->
 
+<!-- ═══════════════════════════════ SMA TREND TAB ════════════════════════════ -->
+<div id="tab-sma" class="tab-panel">
+<main class="main">
+  <div class="card">
+    <div class="card-header">
+      <h2>📈 SMA Trend Strategy — Live Status</h2>
+      <span class="last-update" id="smaMode">—</span>
+    </div>
+    <div style="padding:10px 16px;font-size:12px;color:var(--muted)">
+      Holds a coin only when its daily close is above its 200-day SMA
+      <b>and</b> the weekly trend (30-week SMA) is up. Otherwise → cash.
+      Honest note: this reduces drawdown, it does not beat buy-and-hold on return.
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Symbol</th><th>Price</th><th>200d SMA</th><th>vs Daily</th><th>Weekly</th><th>Signal</th></tr></thead>
+        <tbody id="smaBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h2>Backtest (daily, fees included)</h2></div>
+    <div class="bt-form">
+      <label>Years <input id="smaYears" type="number" value="3" min="1" max="6" step="0.5"/></label>
+      <label>Capital (USD) <input id="smaCap" type="number" value="1000" min="100"/></label>
+      <button class="btn btn-primary" id="smaBtRun" onclick="runSmaBacktest()" style="margin-bottom:1px">▶ Run Backtest</button>
+      <span class="last-update" id="smaBtProg"></span>
+    </div>
+    <div id="smaBtResult" style="display:none">
+      <div class="bt-summary" id="smaBtCards"></div>
+      <div class="chart-wrap" style="height:240px"><canvas id="smaEquityChart"></canvas></div>
+    </div>
+  </div>
+</main>
+</div><!-- /tab-sma -->
+
 <script>
 // ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml','sma'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'backtest') loadBacktestState();
   if (name === 'universe') loadUniverseState();
   if (name === 'ml')       loadMLState();
+  if (name === 'sma')      loadSmaStatus();
+}
+
+// ── SMA Trend tab ───────────────────────────────────────────────────────────
+let smaEquityChart = null, smaBtPoll = null;
+async function loadSmaStatus() {
+  try {
+    const r = await fetch('/api/sma/status'); const d = await r.json();
+    document.getElementById('smaMode').textContent =
+      `mode: ${d.mode} · daily ${d.period}d` + (d.weekly_gate ? ` + weekly ${d.weekly_period}wk gate` : '');
+    const tb = document.getElementById('smaBody');
+    if (!d.rows || !d.rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No data</td></tr>'; return; }
+    tb.innerHTML = d.rows.map(x => {
+      const sig = x.hold ? '<span class="badge badge-long">🟢 HOLD</span>'
+                         : '<span class="badge badge-short">🔴 CASH</span>';
+      const wk  = x.weekly_up ? `<span class="pos">↑ ${fmt(x.weekly_pct,1)}%</span>`
+                              : `<span class="neg">↓ ${fmt(x.weekly_pct,1)}%</span>`;
+      return `<tr><td><strong>${x.symbol}</strong></td>
+        <td class="mono">$${fmt(x.close, x.close>100?2:4)}</td>
+        <td class="mono">$${fmt(x.sma, x.sma>100?2:4)}</td>
+        <td class="mono ${x.daily_up?'pos':'neg'}">${x.pct>=0?'+':''}${fmt(x.pct,1)}%</td>
+        <td class="mono">${wk}</td><td>${sig}</td></tr>`;
+    }).join('');
+  } catch(e) { document.getElementById('smaBody').innerHTML='<tr><td colspan="6" class="empty">Error loading</td></tr>'; }
+}
+
+async function runSmaBacktest() {
+  const years = parseFloat(document.getElementById('smaYears').value)||3;
+  const capital = parseFloat(document.getElementById('smaCap').value)||1000;
+  document.getElementById('smaBtRun').disabled = true;
+  document.getElementById('smaBtProg').textContent = 'Running…';
+  await fetch('/api/sma/backtest',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({years,capital})});
+  if (smaBtPoll) clearInterval(smaBtPoll);
+  smaBtPoll = setInterval(pollSmaBacktest, 2000);
+}
+async function pollSmaBacktest() {
+  const r = await fetch('/api/sma/backtest_status'); const d = await r.json();
+  if (d.status === 'running') { document.getElementById('smaBtProg').textContent = 'Running…'; return; }
+  clearInterval(smaBtPoll); smaBtPoll = null;
+  document.getElementById('smaBtRun').disabled = false;
+  document.getElementById('smaBtProg').textContent = '';
+  if (d.status === 'done' && d.result && !d.result.error) renderSmaBacktest(d.result);
+  else document.getElementById('smaBtProg').textContent = 'Error: ' + (d.result?.error||'failed');
+}
+function renderSmaBacktest(r) {
+  document.getElementById('smaBtResult').style.display = 'block';
+  const beat = r.total_return >= r.bh_return;
+  const ddBetter = r.max_drawdown > r.bh_drawdown;  // less negative = better
+  document.getElementById('smaBtCards').innerHTML = `
+    <div class="bt-stat"><div class="l">Window</div><div class="v" style="font-size:14px">${r.years}y (${r.symbols.length} coins)</div></div>
+    <div class="bt-stat"><div class="l">Total Return</div><div class="v ${r.total_return>=0?'pos':'neg'}">${r.total_return>=0?'+':''}${r.total_return}%</div></div>
+    <div class="bt-stat"><div class="l">CAGR</div><div class="v">${r.cagr>=0?'+':''}${r.cagr}%</div></div>
+    <div class="bt-stat"><div class="l">Max Drawdown</div><div class="v ${ddBetter?'pos':'neg'}">${r.max_drawdown}%</div></div>
+    <div class="bt-stat"><div class="l">Calmar</div><div class="v">${r.calmar}</div></div>
+    <div class="bt-stat"><div class="l">Sharpe</div><div class="v">${r.sharpe}</div></div>
+    <div class="bt-stat"><div class="l">Trades</div><div class="v">${r.trades}</div></div>
+    <div class="bt-stat"><div class="l">vs Hold BTC</div><div class="v" style="font-size:13px">${r.bh_return}% / DD ${r.bh_drawdown}%</div></div>`;
+  if (smaEquityChart) smaEquityChart.destroy();
+  const ctx = document.getElementById('smaEquityChart').getContext('2d');
+  smaEquityChart = new Chart(ctx, {
+    type:'line',
+    data:{labels:r.curve.map(p=>p.t),datasets:[{label:'Equity',data:r.curve.map(p=>p.v),
+      borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.08)',borderWidth:2,pointRadius:0,fill:true,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8b949e',maxTicksLimit:8},grid:{display:false}},
+              y:{ticks:{color:'#8b949e',callback:v=>'$'+v},grid:{color:'#21262d'}}}}
+  });
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────

@@ -140,29 +140,55 @@ def rebalance(signals: dict, state: dict) -> None:
         return
 
     # ── Trading mode (paper if DRY_RUN, else live) ────────────────────────────
-    # 1. SELL everything leaving the target
+    fee = getattr(config, "FEE_RATE_PCT", 0.6) / 100.0
+
+    # Track a virtual cash balance so paper P&L is accurate. First run → seed it.
+    if "cash" not in state:
+        state["cash"] = config.TOTAL_CAPITAL_USDT
+
+    # 1. SELL everything leaving the target → proceeds back to cash
     for s in sells:
-        units = state["holdings"][s].get("units", 0)
+        h = state["holdings"][s]
+        units = h.get("units", 0)
         if units > 0:
             fill = place_market_order_filled(s, "sell", units)
-            _alert(f"📤 SOLD *{s}* — below {config.SMA_PERIOD}d SMA "
-                   f"({signals[s]['pct']:+.1f}%). Exited to cash.")
+            px   = fill.get("average") or signals[s]["close"]
+            proceeds = units * px * (1 - fee)
+            state["cash"] += proceeds
+            pnl = proceeds - (h.get("units", 0) * h.get("entry", px))
+            _alert(f"📤 SOLD *{s}* @ ${px:,.2f} — below {config.SMA_PERIOD}d SMA. "
+                   f"Proceeds ${proceeds:,.0f} (P&L {'+'if pnl>=0 else ''}${pnl:,.0f}).")
         del state["holdings"][s]
 
-    # 2. BUY new entrants, equal weight across the full target set
+    # 2. BUY new entrants, equal weight across the FULL target set, from cash
     if buys:
-        cash = get_quote_balance() if not config.DRY_RUN else config.TOTAL_CAPITAL_USDT
-        # Reserve equal slices for ALL target coins; spend on the new ones
-        slice_usd = cash / max(len(target), 1)
+        # Mark-to-market total equity, split equally across all target coins
+        equity = _equity(signals, state)
+        slice_usd = equity / max(len(target), 1)
         for s in buys:
+            spend = min(slice_usd, state["cash"])
+            if spend < 5:
+                continue
             price = signals[s]["close"]
-            qty   = slice_usd / price
+            qty   = spend / price
             fill  = place_market_order_filled(s, "buy", qty)
             filled = fill.get("filled", qty)
             avg    = fill.get("average", price)
+            state["cash"] -= spend
             state["holdings"][s] = {"units": filled, "entry": avg, "since": _now()}
-            _alert(f"📥 BOUGHT *{s}* — above {config.SMA_PERIOD}d SMA "
-                   f"({signals[s]['pct']:+.1f}%). Allocated ${slice_usd:,.0f}.")
+            _alert(f"📥 BOUGHT *{s}* @ ${avg:,.2f} — above {config.SMA_PERIOD}d SMA. "
+                   f"Allocated ${spend:,.0f}.")
+
+
+def _equity(signals: dict, state: dict) -> float:
+    """Total portfolio value = virtual cash + current value of all holdings."""
+    cash = state.get("cash", config.TOTAL_CAPITAL_USDT)
+    held_val = 0.0
+    for s, h in state.get("holdings", {}).items():
+        px = signals.get(s, {}).get("close")
+        if px and h.get("units"):
+            held_val += h["units"] * px
+    return cash + held_val
 
 
 def _now() -> str:
@@ -203,7 +229,122 @@ def print_status(signals: dict, state: dict) -> None:
     print(f"{'-'*58}")
     print(f"  Currently {'flagged to hold' if config.SMA_ALERT_ONLY else 'holding'}: "
           f"{', '.join(held) if held else 'CASH (nothing in uptrend)'}")
+
+    # Paper/live P&L (only when actually trading, not alert-only)
+    if not config.SMA_ALERT_ONLY:
+        equity = _equity(signals, state)
+        start  = config.TOTAL_CAPITAL_USDT
+        pnl    = equity - start
+        pct    = pnl / start * 100 if start else 0
+        cash   = state.get("cash", start)
+        sign   = "+" if pnl >= 0 else ""
+        print(f"  Equity: ${equity:,.2f}  (cash ${cash:,.2f})  "
+              f"P&L {sign}${pnl:,.2f} ({sign}{pct:.1f}%)")
     print(f"  Next check in {config.SMA_CHECK_HOURS}h\n")
+
+
+# ── Backtest (shared by CLI + dashboard) ──────────────────────────────────────
+
+def backtest_sma(years: float = 3.0, capital: float = 1000.0,
+                 progress=None) -> dict:
+    """
+    Walk-forward backtest of the SMA200 (+ optional weekly gate) PORTFOLIO:
+    each day, hold equal-weight the coins whose daily close > 200d SMA AND
+    (if enabled) weekly close > 30wk SMA; cash otherwise. Trades only the delta.
+    Fees applied. Returns metrics + equity curve + buy&hold-BTC benchmark.
+    """
+    import numpy as np
+    import pandas as pd
+    fee   = getattr(config, "FEE_RATE_PCT", 0.6) / 100.0
+    period = config.SMA_PERIOD
+    wp     = config.SMA_WEEKLY_PERIOD
+    use_wk = getattr(config, "SMA_USE_WEEKLY_GATE", False)
+    need   = int(years * 365 + period + 80)
+
+    closes, dsma, wgate = {}, {}, {}
+    for sym in config.SMA_SYMBOLS:
+        df = fetch_ohlcv(sym, "1d", limit=need)
+        if df.empty or len(df) < period + 30:
+            continue
+        c = df["close"]
+        closes[sym] = c
+        dsma[sym]   = c.rolling(period).mean()
+        if use_wk:
+            wk = c.resample("1W").last()
+            wsma = wk.rolling(wp).mean()
+            up = (wk > wsma)
+            wgate[sym] = up.reindex(c.index, method="ffill").fillna(False)
+        else:
+            wgate[sym] = pd.Series(True, index=c.index)
+
+    if not closes:
+        return {"error": "no data"}
+
+    close_p = pd.DataFrame(closes).sort_index()
+    n = len(close_p)
+    start_i = period + 5
+    syms = list(closes.keys())
+
+    cash, holdings, n_trades, equity = capital, {}, 0, []
+    for i in range(start_i, n):
+        px = close_p.iloc[i]
+        def mark():
+            return cash + sum(u * px[s] for s, u in holdings.items()
+                              if not pd.isna(px.get(s, float("nan"))))
+        # target = coins in uptrend today
+        target = set()
+        for s in syms:
+            c_i = px.get(s); sma_i = dsma[s].iloc[i]
+            if pd.isna(c_i) or pd.isna(sma_i):
+                continue
+            if c_i > sma_i and bool(wgate[s].iloc[i]):
+                target.add(s)
+        cur = set(holdings.keys())
+        for s in cur - target:                       # SELL leavers
+            cash += holdings[s] * px[s] * (1 - fee); n_trades += 1; del holdings[s]
+        entrants = target - set(holdings.keys())
+        if entrants:                                  # BUY entrants equal-weight
+            slice_v = mark() / max(len(target), 1)
+            for s in entrants:
+                if slice_v > 1 and cash >= slice_v * 0.5:
+                    holdings[s] = (slice_v * (1 - fee)) / px[s]; cash -= slice_v; n_trades += 1
+        equity.append(mark())
+
+    eq = pd.Series(equity, index=close_p.index[start_i:])
+    end = eq.iloc[-1]; yrs = (eq.index[-1] - eq.index[0]).days / 365.25
+    cagr = (end / capital) ** (1 / yrs) - 1 if yrs > 0 and end > 0 else -1
+    maxdd = ((eq - eq.cummax()) / eq.cummax()).min()
+    rets = eq.pct_change().dropna()
+    sharpe = rets.mean() / rets.std() * (365 ** 0.5) if rets.std() > 0 else 0
+    calmar = cagr / abs(maxdd) if maxdd < 0 else 0
+
+    # Buy & hold BTC benchmark over same window
+    btc = close_p["BTC/USD"].iloc[start_i:] if "BTC/USD" in close_p else eq
+    bh_u = (capital * (1 - fee)) / btc.iloc[0]; bh = bh_u * btc
+    bh_ret = (bh.iloc[-1] / capital - 1) * 100
+    bh_dd  = ((bh - bh.cummax()) / bh.cummax()).min() * 100
+
+    # Downsample equity curve for the chart (~150 pts)
+    step = max(1, len(eq) // 150)
+    curve = [{"t": str(t.date()), "v": round(float(v), 2)}
+             for t, v in zip(eq.index[::step], eq.values[::step])]
+
+    return {
+        "years": round(yrs, 1),
+        "start": str(eq.index[0].date()), "end": str(eq.index[-1].date()),
+        "total_return": round((end / capital - 1) * 100, 1),
+        "cagr": round(cagr * 100, 1),
+        "max_drawdown": round(maxdd * 100, 1),
+        "sharpe": round(sharpe, 2),
+        "calmar": round(calmar, 2),
+        "trades": n_trades,
+        "end_capital": round(end, 2),
+        "bh_return": round(bh_ret, 1),
+        "bh_drawdown": round(bh_dd, 1),
+        "symbols": syms,
+        "weekly_gate": use_wk,
+        "curve": curve,
+    }
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -234,9 +375,38 @@ def run() -> None:
         time.sleep(config.SMA_CHECK_HOURS * 3600)
 
 
+def print_backtest(res: dict) -> None:
+    if res.get("error"):
+        print("Backtest error:", res["error"]); return
+    beat_dd = res["max_drawdown"] > res["bh_drawdown"]   # less negative = better
+    print(f"\n{'='*60}")
+    print(f"  SMA{config.SMA_PERIOD} TREND PORTFOLIO BACKTEST")
+    print(f"  {res['start']} → {res['end']}  ({res['years']}y, {len(res['symbols'])} coins)")
+    print(f"  Weekly gate: {'ON' if res['weekly_gate'] else 'off'}  |  fees included")
+    print(f"{'='*60}")
+    print(f"  Total return : {res['total_return']:+.1f}%   (Buy & Hold BTC: {res['bh_return']:+.0f}%)")
+    print(f"  CAGR         : {res['cagr']:+.1f}%")
+    print(f"  Max drawdown : {res['max_drawdown']:.1f}%   (Buy & Hold BTC: {res['bh_drawdown']:.0f}%)"
+          f"   {'← gentler ✅' if beat_dd else ''}")
+    print(f"  Calmar       : {res['calmar']:.2f}")
+    print(f"  Sharpe       : {res['sharpe']:.2f}")
+    print(f"  Trades       : {res['trades']}")
+    print(f"  End capital  : ${res['end_capital']:,.2f}")
+    print(f"{'='*60}")
+    print(f"  Honest read: trend-following gives up some RETURN vs holding, but")
+    print(f"  cuts the DRAWDOWN — a smoother ride, not more money.\n")
+
+
 if __name__ == "__main__":
     import sys
-    if "--once" in sys.argv:
+    if "--backtest" in sys.argv:
+        # python3 sma_bot.py --backtest [years] [capital]
+        nums = [a for a in sys.argv if a.replace(".", "").isdigit()]
+        years   = float(nums[0]) if len(nums) > 0 else 3.0
+        capital = float(nums[1]) if len(nums) > 1 else config.TOTAL_CAPITAL_USDT
+        print(f"\nRunning SMA backtest: {years}y, ${capital:,.0f} … (fetching daily history)")
+        print_backtest(backtest_sma(years=years, capital=capital))
+    elif "--once" in sys.argv:
         run_once()     # single check (useful for cron or testing)
     else:
         run()          # continuous loop

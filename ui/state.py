@@ -56,6 +56,8 @@ _state: dict[str, Any] = {
     "auth_msg":          "",
     # ── Circuit breaker ───────────────────────────────────────────────────────
     "circuit_breaker":   {"status": "active", "reason": ""},
+    # ── SMA trend strategy ────────────────────────────────────────────────────
+    "sma_backtest":      {"status": "idle", "result": None},
 }
 
 
@@ -192,6 +194,18 @@ def set_circuit_breaker(status: dict) -> None:
 def get_circuit_breaker() -> dict:
     with _lock:
         return dict(_state["circuit_breaker"])
+
+
+# ── SMA trend strategy state ──────────────────────────────────────────────────
+
+def set_sma_backtest(d: dict) -> None:
+    with _lock:
+        _state["sma_backtest"] = d
+
+
+def get_sma_backtest() -> dict:
+    with _lock:
+        return dict(_state["sma_backtest"])
 
 
 def get_backtest() -> dict:
