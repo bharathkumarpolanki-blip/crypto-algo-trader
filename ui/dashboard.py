@@ -1100,6 +1100,7 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
 
 <script>
 // ── Tab switching ──────────────────────────────────────────────────────────────
+let smaPoll = null;
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml','sma'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -1107,7 +1108,12 @@ function switchTab(name) {
   if (name === 'backtest') loadBacktestState();
   if (name === 'universe') loadUniverseState();
   if (name === 'ml')       loadMLState();
-  if (name === 'sma')    { loadSmaStatus(); loadSmaPaper(); }
+  // Auto-refresh the SMA paper activity only while the SMA tab is open.
+  if (smaPoll) { clearInterval(smaPoll); smaPoll = null; }
+  if (name === 'sma') {
+    loadSmaStatus(); loadSmaPaper();
+    smaPoll = setInterval(loadSmaPaper, 5000);   // poll paper P&L every 5s
+  }
 }
 
 // ── SMA Trend tab ───────────────────────────────────────────────────────────
