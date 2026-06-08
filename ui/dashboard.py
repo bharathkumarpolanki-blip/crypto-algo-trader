@@ -360,6 +360,28 @@ def api_sma_status():
         return jsonify({"error": str(e), "rows": []}), 500
 
 
+@app.route("/api/sma/paper", methods=["GET"])
+def api_sma_paper():
+    """
+    Paper/live activity from a separately-running `sma_bot.py` loop. Read from
+    sma_state.json (the cross-process channel — the SMA bot runs in its own
+    process, so we can't use the in-memory dashboard state).
+    """
+    try:
+        import json, os
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sma_state.json")
+        if not os.path.exists(path):
+            return jsonify({"running": False, "msg": "sma_bot has not run yet"})
+        state = json.load(open(path))
+        paper = state.get("paper")
+        if not paper:
+            return jsonify({"running": False, "msg": "no paper activity recorded yet"})
+        return jsonify({"running": True, "last_check": state.get("last_check"), **paper})
+    except Exception as e:
+        logger.error("SMA paper read failed: %s", e)
+        return jsonify({"running": False, "error": str(e)}), 500
+
+
 @app.route("/api/sma/backtest", methods=["POST"])
 def api_sma_backtest():
     """Run the SMA portfolio backtest in the background."""
@@ -1041,6 +1063,26 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
   </div>
 
   <div class="card">
+    <div class="card-header">
+      <h2>💵 SMA Paper / Live Activity</h2>
+      <span class="last-update" id="smaPaperUpd">—</span>
+    </div>
+    <div style="padding:8px 16px;font-size:12px;color:var(--muted)">
+      Live equity &amp; P&amp;L from a running <code>sma_bot.py</code> loop
+      (set <code>SMA_ALERT_ONLY=False</code>). Reads <code>sma_state.json</code>.
+    </div>
+    <div class="bt-summary" id="smaPaperCards">
+      <div class="empty" style="padding:10px 16px">sma_bot.py not running in trade mode yet.</div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Holding</th><th>Units</th><th>Entry</th><th>Price</th><th>Value</th><th>P&amp;L</th></tr></thead>
+        <tbody id="smaPaperBody"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-header"><h2>Backtest (daily, fees included)</h2></div>
     <div class="bt-form">
       <label>Years <input id="smaYears" type="number" value="3" min="1" max="6" step="0.5"/></label>
@@ -1065,7 +1107,7 @@ function switchTab(name) {
   if (name === 'backtest') loadBacktestState();
   if (name === 'universe') loadUniverseState();
   if (name === 'ml')       loadMLState();
-  if (name === 'sma')      loadSmaStatus();
+  if (name === 'sma')    { loadSmaStatus(); loadSmaPaper(); }
 }
 
 // ── SMA Trend tab ───────────────────────────────────────────────────────────
@@ -1089,6 +1131,41 @@ async function loadSmaStatus() {
         <td class="mono">${wk}</td><td>${sig}</td></tr>`;
     }).join('');
   } catch(e) { document.getElementById('smaBody').innerHTML='<tr><td colspan="6" class="empty">Error loading</td></tr>'; }
+}
+
+async function loadSmaPaper() {
+  try {
+    const r = await fetch('/api/sma/paper'); const d = await r.json();
+    const cards = document.getElementById('smaPaperCards');
+    const body  = document.getElementById('smaPaperBody');
+    const upd   = document.getElementById('smaPaperUpd');
+    if (!d.running) {
+      upd.textContent = '';
+      cards.innerHTML = `<div class="empty" style="padding:10px 16px">${d.msg || 'sma_bot.py not running in trade mode'}</div>`;
+      body.innerHTML  = '<tr><td colspan="6" class="empty">—</td></tr>';
+      return;
+    }
+    upd.textContent = 'mode: ' + d.mode + (d.last_check ? ' · ' + new Date(d.last_check).toLocaleString() : '');
+    const pcls = d.pnl >= 0 ? 'pos' : 'neg', sgn = d.pnl >= 0 ? '+' : '';
+    cards.innerHTML =
+      `<div class="bt-card"><div class="bt-card-label">Equity</div><div class="bt-card-val">$${fmt(d.equity,2)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">Cash</div><div class="bt-card-val">$${fmt(d.cash,2)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">P&L</div><div class="bt-card-val ${pcls}">${sgn}$${fmt(d.pnl,2)} (${sgn}${fmt(d.pnl_pct,1)}%)</div></div>
+       <div class="bt-card"><div class="bt-card-label">Start</div><div class="bt-card-val">$${fmt(d.start_capital,0)}</div></div>`;
+    if (!d.positions || !d.positions.length) {
+      body.innerHTML = '<tr><td colspan="6" class="empty">All cash — no holdings</td></tr>';
+    } else {
+      body.innerHTML = d.positions.map(p => {
+        const cls = (p.pnl||0) >= 0 ? 'pos' : 'neg', s = (p.pnl||0) >= 0 ? '+' : '';
+        return `<tr><td><strong>${p.symbol}</strong></td>
+          <td class="mono">${p.units!=null?fmt(p.units,4):'—'}</td>
+          <td class="mono">${p.entry!=null?'$'+fmt(p.entry,2):'—'}</td>
+          <td class="mono">${p.price!=null?'$'+fmt(p.price,2):'—'}</td>
+          <td class="mono">${p.value!=null?'$'+fmt(p.value,2):'—'}</td>
+          <td class="mono ${cls}">${p.pnl!=null?s+'$'+fmt(p.pnl,2):'—'}</td></tr>`;
+      }).join('');
+    }
+  } catch(e) { /* leave placeholder */ }
 }
 
 async function runSmaBacktest() {

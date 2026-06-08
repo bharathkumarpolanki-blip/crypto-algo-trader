@@ -191,6 +191,39 @@ def _equity(signals: dict, state: dict) -> float:
     return cash + held_val
 
 
+def build_paper_summary(signals: dict, state: dict) -> dict:
+    """
+    Snapshot of paper/live activity for the dashboard. Written into the state
+    file each cycle so the dashboard (a SEPARATE process) can read it.
+    """
+    mode = "ALERT-ONLY" if config.SMA_ALERT_ONLY else ("PAPER" if config.DRY_RUN else "LIVE")
+    start = config.TOTAL_CAPITAL_USDT
+    equity = _equity(signals, state) if not config.SMA_ALERT_ONLY else start
+    cash = state.get("cash", start)
+    pnl = equity - start
+    positions = []
+    for s, h in state.get("holdings", {}).items():
+        px = signals.get(s, {}).get("close")
+        units = h.get("units")
+        entry = h.get("entry")
+        ppnl = (units * (px - entry)) if (units and px and entry) else None
+        positions.append({
+            "symbol": s, "units": units, "entry": entry, "price": px,
+            "value": (units * px) if (units and px) else None,
+            "pnl": ppnl, "since": h.get("since"),
+        })
+    return {
+        "mode": mode,
+        "equity": round(equity, 2),
+        "cash": round(cash, 2),
+        "start_capital": start,
+        "pnl": round(pnl, 2),
+        "pnl_pct": round(pnl / start * 100, 2) if start else 0.0,
+        "positions": positions,
+        "updated": _now(),
+    }
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -357,6 +390,7 @@ def run_once() -> None:
         return
     rebalance(signals, state)
     state["last_check"] = _now()
+    state["paper"] = build_paper_summary(signals, state)   # for the dashboard
     save_state(state)
     print_status(signals, state)
 
