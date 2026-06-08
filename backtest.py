@@ -24,7 +24,7 @@ from colorama import Fore, Style, init as colorama_init
 import config
 from exchange.market_data import fetch_ohlcv
 from core.indicators import enrich
-from core.strategies import analyse, trend_direction_4h
+from core.strategies import analyse, trend_direction_4h, passes_conviction
 
 colorama_init(autoreset=True)
 logging.basicConfig(level=logging.WARNING)
@@ -70,6 +70,9 @@ def run_backtest(symbol: str, timeframe: str, days: int,
 
     df1h = fetch_ohlcv(symbol, "1h",            limit=limit_1h)
     df4h = fetch_ohlcv(symbol, config.TF_TREND, limit=limit_4h)
+    # Daily candles for the 200-SMA macro gate (Fix 2). Causal: at each 1h step
+    # we slice df1d up to the current timestamp, so no future daily bar leaks in.
+    df1d = fetch_ohlcv(symbol, "1d", limit=config.DAILY_GATE_SMA_PERIOD + 400)
 
     if df1h.empty or len(df1h) < 150:
         if verbose: print("Not enough 1h data.")
@@ -118,6 +121,14 @@ def run_backtest(symbol: str, timeframe: str, days: int,
         else:
             slice_4h = pd.DataFrame()
 
+        # Causal daily slice for the 200-SMA macro gate (only past+current days).
+        if not df1d.empty:
+            slice_1d = df1d[df1d.index <= ts_1h]
+            if len(slice_1d) < config.DAILY_GATE_SMA_PERIOD:
+                slice_1d = None
+        else:
+            slice_1d = None
+
         # ── Check exit ────────────────────────────────────────────────────────
         if in_trade:
             # Use high/low of the candle for realistic fill
@@ -163,10 +174,11 @@ def run_backtest(symbol: str, timeframe: str, days: int,
                 df_trend=slice_4h if len(slice_4h) >= 60 else None,
                 include_sentiment=False,   # no live sentiment lookups in backtest
                 include_ml=False,          # no ML — avoids look-ahead bias
+                df_daily=slice_1d,         # 200-SMA macro gate (Fix 2)
             )
 
             if (signal.direction in ("long", "short")
-                    and signal.score >= config.MIN_SIGNAL_SCORE
+                    and passes_conviction(signal)   # direction-aware gate (Fix 1)
                     and signal.atr > 0):
 
                 # Always compute fresh TP/SL from ACTUAL entry price (not signal's stale price)

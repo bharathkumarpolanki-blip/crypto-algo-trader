@@ -20,11 +20,14 @@ MAX_PORTFOLIO_RISK_PCT  = float(os.getenv("MAX_PORTFOLIO_RISK_PCT", 10.0))
 # ── Universe of coins to scan ─────────────────────────────────────────────────
 # Coinbase trades against USD (not USDT)
 WATCHLIST = [
-    "BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD",
-    "DOGE/USD", "ADA/USD", "LINK/USD", "DOT/USD", "UNI/USD",
-    "ATOM/USD", "NEAR/USD", "AAVE/USD", "CRV/USD",
+    "BTC/USD", "ETH/USD", "SOL/USD",
 ]
-# Removed: AVAX/USD (consistently -10%), OP/USD (0% win rate across all backtests)
+# Trimmed to quality assets only (evidence-driven): in the 13-coin backtest the
+# small-cap alts bled worst (CRV -66%, AAVE -63%, DOGE -53%, ADA -50%) while
+# BTC/ETH lost least. Low-quality alts add fee churn and tail risk with no edge.
+# Full former list kept here for reference / dashboard, not for trading:
+#   XRP, DOGE, ADA, LINK, DOT, UNI, ATOM, NEAR, AAVE, CRV  (all PF<0.7)
+# Removed earlier: AVAX/USD (consistently -10%), OP/USD (0% win rate).
 
 # Quote currency used for capital accounting
 QUOTE_CURRENCY = "USD"
@@ -71,21 +74,42 @@ TRAILING_STOP_ATR      = 1.5   # trail at 1.5 ATR — lock in profits sooner
 MIN_SIGNAL_SCORE = 5.5         # sweet spot — filters noise without killing BTC/ETH longs
 STRONG_SIGNAL_SCORE = 7.5      # raised — scale up only on very strong setups
 
+# ── Mean-reversion engine (core/mean_reversion.py — the contrarian rewrite) ───
+# Fades 1h extremes instead of chasing trend. Trades ONLY in ranges (low ADX).
+# Geometry is flipped: tight target (revert to mean), wider stop (beyond extreme).
+MR_MIN_SCORE   = 6.0    # conviction threshold (long ≥ this, short ≤ 10-this)
+MR_ADX_MAX     = 25.0   # only trade when ADX < this (ranging). Strong trend = block
+MR_ATR_TARGET  = 1.2    # take-profit distance in ATRs (small — back to the mean)
+MR_ATR_STOP    = 2.0    # stop distance in ATRs (wide — beyond the extreme)
+
+# ── Daily macro-trend gate (Fix 2) ────────────────────────────────────────────
+# Block longs below the daily 200-SMA and shorts above it — the most robust
+# trend filter in our research. SMA_BUFFER_PCT dead-band avoids whipsaw at the
+# line. Set False to disable (gate degrades to 'unknown' = allow both).
+DAILY_TREND_GATE     = True
+DAILY_GATE_SMA_PERIOD = 200
+
 # ── Candles to fetch per symbol ───────────────────────────────────────────────
 CANDLE_LIMIT = 300
 
 # ── Sentiment ─────────────────────────────────────────────────────────────────
 # No API keys required — uses Alternative.me + CoinGecko + RSS feeds
-SENTIMENT_WEIGHT    = 1.0      # how much sentiment contributes to signal score
+SENTIMENT_WEIGHT    = 0.0      # DISABLED (evidence): news/sentiment gives retail
+                               # no edge — it's priced in by the time we read an
+                               # RSS feed. It only added noise to the score.
+                               # Set >0 only if forward-testing proves it helps.
 
 # ── Machine Learning (FreqAI-inspired, own implementation) ────────────────────
 ML_ENABLED          = True     # master switch for ML features
 ML_WEIGHT           = 1.0      # how much the ML signal contributes to the score
 EXTREMA_WEIGHT      = 1.0      # weight of the extrema (top/bottom) predictor
 ML_USE_REGIME       = True     # use ML regime classifier instead of EMA rules
-ML_SCALE_POSITIONS  = True     # scale position size by ML confidence
+ML_SCALE_POSITIONS  = False    # DISABLED (evidence): the confidence score is
+                               # non-monotonic with realised returns — sizing on
+                               # it adds risk without adding edge. Size by risk only.
 ML_MIN_CONFIDENCE   = 0.60     # below this, ML adds no directional weight
-ML_RETRAIN_HOURS    = 12       # retrain models every N hours
+ML_RETRAIN_HOURS    = 6        # retrain every 6h (was 12) — matches the 6-candle
+                               # prediction horizon; less staleness / drift risk.
 ML_TRAIN_ON_START   = True     # train all models when bot starts
 ML_COMPUTE_IMPORTANCE = True   # compute feature importance (dashboard only).
                                # Set False to make training even faster.
@@ -98,6 +122,13 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 SCAN_INTERVAL_SECONDS = 300    # entry scan cadence (1h candles — 5 min is ample)
 POSITION_CHECK_SECONDS = 45    # exit guard cadence — fast loop for stops/targets
 DRY_RUN = True                 # True = never place real orders; just log signals
+
+# ── Tier-0 safety: 1h trend engine is research-only ───────────────────────────
+# The 1h composite signal has a statistically significant NEGATIVE Information
+# Coefficient (anti-predictive, IC≈-0.037, p=0.03) — proven unprofitable on all
+# 13 watchlist coins after fees. It must NEVER trade real money. This flag is an
+# independent hard block checked in try_open_trade, on top of DRY_RUN.
+ENGINE_1H_LIVE_ENABLED = False   # keep False — 1h engine is a DRY_RUN sandbox only
 
 # ── Exchange-side protective orders ───────────────────────────────────────────
 USE_EXCHANGE_STOPS = True      # place real stop/TP orders on the exchange (live).
@@ -117,7 +148,10 @@ ACCOUNT_FOR_FEES      = True   # subtract fees from realised P&L (true net)
 # ── Entry order type ──────────────────────────────────────────────────────────
 # "taker"  : market order — fills instantly, higher fee (FEE_RATE_PCT)
 # "maker"  : post-only limit at the bid/ask — lower fee, but may not fill
-ENTRY_ORDER_TYPE         = "taker"   # default reliable; switch to "maker" to cut fees
+ENTRY_ORDER_TYPE         = "maker"   # CHANGED → maker: post-only limit at the
+                                     # bid/ask = 0.4% vs 0.6% taker (~33% less fee
+                                     # drag). Falls back to taker if it doesn't
+                                     # fill (ENTRY_FALLBACK_TO_TAKER below).
 ENTRY_FILL_TIMEOUT_SEC   = 45        # how long to wait for a maker order to fill
 ENTRY_FALLBACK_TO_TAKER  = True      # if maker doesn't fill in time → market order
                                      # (False = skip the trade, pure maker-only)
@@ -126,7 +160,9 @@ ENTRY_FALLBACK_TO_TAKER  = True      # if maker doesn't fill in time → market 
 # least this much AFTER round-trip fees. Trades that can't clear fees + a real
 # profit are rejected. Raising this = fewer but higher-quality trades.
 MIN_NET_PROFIT_USD    = 1.0    # minimum net $ profit a trade's target must clear
-MIN_WIN_FEE_MULTIPLE  = 3.0    # target's gross win must be ≥ this × round-trip fee.
+MIN_WIN_FEE_MULTIPLE  = 4.0    # target's gross win must be ≥ this × round-trip fee.
+                               # Raised 3→4 — stricter fee discipline; only takes
+                               # trades whose reward clearly dwarfs the fee.
                                # The single biggest fee-discipline lever: forces the
                                # bot to only take trades whose reward dwarfs the fee.
 

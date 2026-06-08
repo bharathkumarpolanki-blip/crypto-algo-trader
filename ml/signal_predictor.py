@@ -8,8 +8,9 @@ Inspired by FreqAI's LightGBM Regressor concept:
   - Persist model to disk, reload on restart
 
 Our implementation:
-  - Target: was the trade profitable? (binary) + expected % return (regression)
-  - Model: LightGBM (fast, robust on tabular data, handles feature importance)
+  - Target: 3-class outcome over the next N candles — long / short / sideways.
+    Each class is LEARNED (short is NOT a complement of long).
+  - Model: sklearn HistGradientBoosting multiclass (no system deps)
   - Retraining: background thread, every RETRAIN_HOURS
   - Integration: adds ML component to strategy scoring (component 15)
   - Confidence: prediction probability used to scale position size
@@ -47,6 +48,26 @@ MIN_TRAIN_CANDLES = 200         # minimum history needed to train
 FORWARD_CANDLES  = 6            # predict outcome N candles ahead
 PROFIT_THRESHOLD = 0.005        # 0.5% minimum to call a trade "profitable"
 MIN_TEST_AUC     = 0.53         # below this the model doesn't beat random — ignore it
+DIRECTION_MIN_PROB = 0.40       # min learned probability for a directional class to
+                                # fire (3-class: ~0.33 is chance, so 0.40 = real lead)
+
+
+def _macro_ovr_auc(y: np.ndarray, proba: np.ndarray, classes: np.ndarray) -> float:
+    """
+    Macro one-vs-rest AUC across all classes present in `y`. Robust to a class
+    being absent from a split (skips it) — so it works for the 3-class
+    long/short/sideways model even on skewed crypto data. Falls back to 0.5.
+    """
+    aucs = []
+    for idx, c in enumerate(classes):
+        yc = (y == c).astype(int)
+        if len(np.unique(yc)) < 2:
+            continue
+        try:
+            aucs.append(roc_auc_score(yc, proba[:, idx]))
+        except Exception:
+            pass
+    return float(np.mean(aucs)) if aucs else 0.5
 
 
 # ── Prediction result ─────────────────────────────────────────────────────────
@@ -74,6 +95,7 @@ class _SymbolModel:
         self.train_auc:  float = 0.0
         self.test_auc:   float = 0.0
         self.importances: dict[str, float] = {}
+        self.classes_:   list[float] = []      # learned class order (-1/0/+1)
 
     def is_trained(self) -> bool:
         return self.model is not None
@@ -113,7 +135,7 @@ class SignalPredictor:
         -1 = price went down by > PROFIT_THRESHOLD (profitable short)
          0 = sideways (not traded)
 
-        Using classification with 3 classes, simplified to binary later.
+        Used directly as a 3-class multiclass target (long / short / sideways).
         """
         future_return = df["close"].shift(-FORWARD_CANDLES) / df["close"] - 1
         target = pd.Series(0, index=df.index, dtype=np.float32)
@@ -137,20 +159,20 @@ class SignalPredictor:
         try:
             # Build features
             feature_df = build_features(df)
-            targets    = self._prepare_targets(df)
+            targets    = self._prepare_targets(df)   # -1 short, 0 sideways, +1 long
 
             # Align and drop last FORWARD_CANDLES (no future target yet)
             feature_df = feature_df.iloc[:-FORWARD_CANDLES]
-            targets    = targets.iloc[:-FORWARD_CANDLES]
+            targets    = targets.iloc[:-FORWARD_CANDLES].astype(np.float32)
 
-            # Binary target: was a profitable LONG available?
-            long_target  = (targets == 1.0).astype(np.float32)
-
-            # Preprocess
+            # MULTICLASS target: the model now LEARNS all three outcomes
+            # (long / short / sideways) directly, instead of the old binary
+            # "long vs not-long" where short was just 1 - P(long). Short is now
+            # a learned class with its own probability — no information missed.
             proc = Preprocessor(test_size=0.2, weight_decay=0.92)
-            data = proc.fit_transform(feature_df, long_target)
+            data = proc.fit_transform(feature_df, targets)
 
-            # Need both classes present to train
+            # Need at least two classes present to train a classifier
             if len(np.unique(data.y_train)) < 2:
                 logger.debug("Only one class for %s — skipping", symbol)
                 return False
@@ -170,11 +192,12 @@ class SignalPredictor:
             )
             model.fit(data.X_train, data.y_train, sample_weight=data.weights)
 
-            # Evaluate (probability of positive class)
-            train_pred = model.predict_proba(data.X_train)[:, 1]
-            test_pred  = model.predict_proba(data.X_test)[:, 1]
-            train_auc  = roc_auc_score(data.y_train, train_pred) if len(np.unique(data.y_train)) > 1 else 0.5
-            test_auc   = roc_auc_score(data.y_test,  test_pred)  if len(np.unique(data.y_test))  > 1 else 0.5
+            # Evaluate with macro one-vs-rest AUC across ALL present classes
+            # (long/short/sideways) — robust to a class missing from a split.
+            train_auc = _macro_ovr_auc(data.y_train,
+                                       model.predict_proba(data.X_train), model.classes_)
+            test_auc  = _macro_ovr_auc(data.y_test,
+                                       model.predict_proba(data.X_test),  model.classes_)
 
             logger.info("ML trained %s | train_AUC=%.3f  test_AUC=%.3f  features=%d  samples=%d",
                         symbol, train_auc, test_auc, data.X_train.shape[1], data.n_train)
@@ -210,6 +233,7 @@ class SignalPredictor:
                 sym_model.train_auc      = train_auc
                 sym_model.test_auc       = test_auc
                 sym_model.importances    = importances
+                sym_model.classes_       = [float(c) for c in model.classes_]
 
             self._save(symbol)
             return True
@@ -258,32 +282,30 @@ class SignalPredictor:
                     logger.debug("ML prediction for %s unreliable (dissimilarity=%.2f)", symbol, dissim)
                     reliable = False
 
-            # Predict probability of profitable long
-            long_prob = float(sym_model.model.predict_proba(X_live)[0, 1])
-            short_prob = 1.0 - long_prob    # complement
+            # Per-class probabilities — long / short / sideways are ALL learned
+            # (short is no longer 1 - P(long)). Map by the model's class order.
+            proba   = sym_model.model.predict_proba(X_live)[0]
+            classes = getattr(sym_model, "classes_", None) or [float(c) for c in sym_model.model.classes_]
+            probs   = {float(c): float(p) for c, p in zip(classes, proba)}
+            p_long  = probs.get(1.0,  0.0)
+            p_short = probs.get(-1.0, 0.0)
+            p_side  = probs.get(0.0,  0.0)
 
-            # Direction decision
-            if long_prob > 0.60:
-                direction = "long"
-                confidence = long_prob
-                expected_return = (long_prob - 0.5) * 2 * 0.03   # scale to ~±3%
-            elif short_prob > 0.60:
-                direction = "short"
-                confidence = short_prob
-                expected_return = -(short_prob - 0.5) * 2 * 0.03
+            # Direction = the dominant LEARNED directional class. It must beat
+            # sideways AND clear DIRECTION_MIN_PROB. Sideways winning → neutral.
+            if p_long >= p_short and p_long > p_side and p_long >= DIRECTION_MIN_PROB:
+                direction, confidence = "long", p_long
+            elif p_short > p_long and p_short > p_side and p_short >= DIRECTION_MIN_PROB:
+                direction, confidence = "short", p_short
             else:
-                direction = "neutral"
-                confidence = max(long_prob, short_prob)
-                expected_return = 0.0
+                direction, confidence = "neutral", max(p_long, p_short, p_side)
 
-            # Score in [-2, +2] for strategy integration
-            # Strong long confidence → +2.0, strong short → -2.0, neutral → 0
-            if direction == "long":
-                score = (confidence - 0.5) / 0.5 * 2.0    # 0.5→0, 1.0→+2
-            elif direction == "short":
-                score = -(confidence - 0.5) / 0.5 * 2.0   # 0.5→0, 1.0→-2
-            else:
+            # Signed score in [-2, +2] from the long↔short edge (both learned).
+            score = float(np.clip((p_long - p_short) * 2.0, -2.0, 2.0))
+            expected_return = (p_long - p_short) * 0.03
+            if direction == "neutral":
                 score = 0.0
+                expected_return = 0.0
 
             return MLPrediction(
                 direction=direction,

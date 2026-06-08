@@ -105,6 +105,8 @@ class SignalResult:
     candle_patterns: dict = field(default_factory=dict)  # active pattern detail
     ml_prediction: dict   = field(default_factory=dict)  # ML signal predictor output
     ml_confidence: float  = 0.5                          # 0-1, used to scale position size
+    conviction: float     = 0.0                          # 0-1, |score-5|/5 — direction-agnostic strength
+    daily_trend: str      = "unknown"                    # 1D 200-SMA gate: bull|bear|neutral|unknown
 
 
 def _last(series: pd.Series, n: int = 1):
@@ -177,6 +179,59 @@ def trend_direction_4h(df4h: pd.DataFrame) -> str:
     elif bear_points >= 4 and bear_points > bull_points + 1:
         return "bear"
     return "neutral"
+
+
+# ── Daily macro-trend gate (1D 200-SMA — Fix 2) ───────────────────────────────
+
+def daily_trend_gate(df_daily: pd.DataFrame | None) -> str:
+    """
+    Classify the DAILY trend via the 200-day SMA (the single most robust trend
+    filter in our research — sma_bot.py). Returns 'bull' | 'bear' | 'neutral'
+    | 'unknown'. A SMA_BUFFER_PCT dead-band around the line returns 'neutral'
+    to avoid whipsaw right at the crossing.
+
+      bull    → longs allowed,  shorts blocked
+      bear    → shorts allowed, longs blocked
+      neutral → both allowed (price hugging the SMA — no macro edge either way)
+      unknown → gate disabled / not enough data → both allowed (degrade gracefully)
+    """
+    if not getattr(config, "DAILY_TREND_GATE", True):
+        return "unknown"
+    period = getattr(config, "DAILY_GATE_SMA_PERIOD", 200)
+    if df_daily is None or len(df_daily) < period:
+        return "unknown"
+    close = _last(df_daily["close"])
+    sma   = df_daily["close"].rolling(period).mean().iloc[-1]
+    if np.isnan(close) or np.isnan(sma) or sma <= 0:
+        return "unknown"
+    buf = getattr(config, "SMA_BUFFER_PCT", 0.5) / 100.0
+    if close > sma * (1 + buf):
+        return "bull"
+    if close < sma * (1 - buf):
+        return "bear"
+    return "neutral"
+
+
+def passes_conviction(sig: "SignalResult") -> bool:
+    """
+    Direction-aware conviction gate (Fix 1).
+
+    THE BUG THIS REPLACES: callers used `sig.score >= MIN_SIGNAL_SCORE` for BOTH
+    directions. A short by construction has a LOW normalized score
+    (raw_short_ok = score <= 10 - MIN_SIGNAL_SCORE), so it could NEVER clear a
+    `>= MIN_SIGNAL_SCORE` gate → every short was silently discarded and the bot
+    was long-only by accident.
+
+    The correct test is symmetric around the midpoint (5.0):
+      long  → score >= MIN_SIGNAL_SCORE
+      short → score <= 10 - MIN_SIGNAL_SCORE
+    """
+    thr = config.MIN_SIGNAL_SCORE
+    if sig.direction == "long":
+        return sig.score >= thr
+    if sig.direction == "short":
+        return sig.score <= (10 - thr)
+    return False
 
 
 # ── Individual strategy scores ────────────────────────────────────────────────
@@ -476,11 +531,14 @@ def analyse(symbol: str,
             df_primary: pd.DataFrame,
             df_trend: pd.DataFrame | None = None,
             include_sentiment: bool = True,
-            include_ml: bool = True) -> SignalResult:
+            include_ml: bool = True,
+            df_daily: pd.DataFrame | None = None) -> SignalResult:
     """
     Compute a composite signal score for `symbol`.
     df_primary = enriched 1h candles
-    df_trend   = enriched 4h candles — used as hard directional gate
+    df_trend   = enriched 6h candles — higher-tf directional gate
+    df_daily   = raw/enriched 1D candles — 200-SMA macro gate (Fix 2). Optional;
+                 when None the daily gate degrades to 'unknown' (allows both).
     """
     result = SignalResult(symbol=symbol, direction="neutral", score=0.0, timeframe=config.TF_PRIMARY)
 
@@ -565,8 +623,12 @@ def analyse(symbol: str,
 
     result.components = components
     result.score      = normalized
+    result.conviction = round(abs(normalized - 5.0) / 5.0, 3)   # 0..1 strength
 
-    # ── Direction — score threshold + 4h hard gate ───────────────────────────
+    # ── Direction — symmetric conviction threshold (Fix 1) ────────────────────
+    # Long needs a HIGH score; short needs a LOW score (mirror image). Using the
+    # same `>= MIN_SIGNAL_SCORE` test for both is the bug that made shorts
+    # unreachable — fixed by mirroring the short threshold around the midpoint.
     raw_long_ok  = normalized >= config.MIN_SIGNAL_SCORE and raw > 0
     raw_short_ok = normalized <= (10 - config.MIN_SIGNAL_SCORE) and raw < 0
 
@@ -577,22 +639,33 @@ def analyse(symbol: str,
     strong_long  = want_long  and normalized >= config.STRONG_SIGNAL_SCORE
     strong_short = want_short and normalized <= (10 - config.STRONG_SIGNAL_SCORE)
 
+    # ── Fix 2: daily 200-SMA macro gate ──────────────────────────────────────
+    daily = daily_trend_gate(df_daily)
+    result.daily_trend = daily
+
+    direction = "neutral"
     if want_long and trend4h in ("bull", "neutral"):
-        result.direction = "long"
+        direction = "long"
     elif want_short and trend4h in ("bear", "neutral"):
-        result.direction = "short"
-    # Allow a strong 1h short even in a 6h bull regime (trend divergence)
-    elif strong_short and trend4h == "bull":
-        result.direction = "short"
-    # Allow a strong 1h long even in a 6h bear regime (counter-trend bounce)
-    elif strong_long and trend4h == "bear":
-        result.direction = "long"
+        direction = "short"
+    # Fix 3: counter-trend exceptions now require STRONG conviction AND only fire
+    # when the daily macro trend actively agrees (no more blind dip-buying).
+    elif strong_short and trend4h == "bull" and daily == "bear":
+        direction = "short"
+    elif strong_long and trend4h == "bear" and daily == "bull":
+        direction = "long"
     elif (want_long or want_short) and trend4h == "unknown":
-        if strong_long:  result.direction = "long"
-        elif strong_short: result.direction = "short"
-        else: result.direction = "neutral"
-    else:
-        result.direction = "neutral"
+        if strong_long:    direction = "long"
+        elif strong_short: direction = "short"
+
+    # Daily macro gate VETO: never long below the 200d SMA, never short above it.
+    # 'neutral'/'unknown' daily → no veto (price hugging SMA, or gate disabled).
+    if direction == "long" and daily == "bear":
+        direction = "neutral"; result.note += " | vetoed: daily<200dSMA"
+    elif direction == "short" and daily == "bull":
+        direction = "neutral"; result.note += " | vetoed: daily>200dSMA"
+
+    result.direction = direction
 
     # ── Trade levels ──────────────────────────────────────────────────────────
     close = _last(df_primary["close"])

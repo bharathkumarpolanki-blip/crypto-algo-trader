@@ -33,7 +33,7 @@ from exchange.market_data import (fetch_ohlcv, fetch_ticker, place_order, check_
                                    cancel_order, get_order_status,
                                    place_market_order_filled, place_maker_entry)
 from core.indicators import enrich
-from core.strategies import analyse, SignalResult
+from core.strategies import analyse, SignalResult, passes_conviction
 from risk.risk_manager import RiskManager
 from risk.circuit_breaker import get_breaker
 from notifications.notifier import (notify_signal, notify_trade,
@@ -197,7 +197,14 @@ def scan_symbol(symbol: str) -> SignalResult | None:
             return None
         df1h = enrich(df1h)
         df4h = enrich(df4h) if not df4h.empty else None
-        return analyse(symbol, df1h, df4h, include_sentiment=True)
+        # Daily candles for the 200-SMA macro gate (Fix 2). Cheap (1 call/scan)
+        # and off the hot exit path. Degrades gracefully if the fetch fails.
+        try:
+            df1d = fetch_ohlcv(symbol, "1d", limit=config.DAILY_GATE_SMA_PERIOD + 50)
+            df1d = df1d if (df1d is not None and not df1d.empty) else None
+        except Exception:
+            df1d = None
+        return analyse(symbol, df1h, df4h, include_sentiment=True, df_daily=df1d)
     except Exception as e:
         logger.error("Error scanning %s: %s", symbol, e)
         st.add_error(f"scan {symbol}: {e}")
@@ -292,7 +299,16 @@ def _daily_profit_locked() -> bool:
 def try_open_trade(signal: SignalResult) -> None:
     if signal.direction not in ("long", "short"):
         return
-    if signal.score < config.MIN_SIGNAL_SCORE:
+    # Tier-0 hard block: the 1h engine is proven anti-predictive (negative IC).
+    # It may compute signals for the dashboard but must NEVER place real orders,
+    # regardless of DRY_RUN. Only an explicit opt-in flag can lift this.
+    if not config.DRY_RUN and not getattr(config, "ENGINE_1H_LIVE_ENABLED", False):
+        logger.warning("1h engine live-trading is disabled (research-only). "
+                       "Skipping real entry on %s.", signal.symbol)
+        return
+    # Direction-aware conviction (Fix 1): longs need a high score, shorts a low
+    # one. The old `score < MIN_SIGNAL_SCORE` test rejected every short.
+    if not passes_conviction(signal):
         return
     if signal.risk_reward < 1.5:
         logger.info("Skipping %s — RR %.2f < 1.5", signal.symbol, signal.risk_reward)
@@ -769,7 +785,7 @@ def run() -> None:
             sig = scan_symbol(symbol)
             if sig is not None:
                 signals.append(sig)
-                if sig.direction in ("long", "short") and sig.score >= config.MIN_SIGNAL_SCORE:
+                if sig.direction in ("long", "short") and passes_conviction(sig):
                     logger.info("SIGNAL %s dir=%s score=%.1f rr=%.2f",
                                 symbol, sig.direction, sig.score, sig.risk_reward)
 

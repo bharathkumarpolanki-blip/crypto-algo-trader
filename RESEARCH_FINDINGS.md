@@ -83,3 +83,64 @@ buyers become exit liquidity. File: `breakout_backtest.py`.
 breakout/retest/floor — EVERY approach loses to simply holding BTC. The pattern
 never broke. No retail TA strategy has a tradeable edge here. The only endorsed
 active tool is the SMA200 daily filter (sma_bot.py) — drawdown reduction, not alpha.
+
+## Information-Coefficient deep dive (the decisive evidence)
+
+Moved beyond trade P&L to measure whether the signal PREDICTS forward returns
+(Spearman IC vs N-bar-ahead return, cost-independent). Tools: `edge_validation.py`,
+`signal_discovery.py`, `horizon_discovery.py`.
+
+- **Composite 1h signal IC = -0.037 (p=0.03)** — statistically significant but
+  NEGATIVE. Higher score predicts LOWER returns. The engine is on the wrong side.
+- **Per-component IC:** trend signals are the poison — `ema_trend` -0.057,
+  `ichimoku` -0.055, `regime` -0.053 (all p<0.003). Only `volume` (+0.039) and
+  `stochastic` (+0.031) are positive & significant. RSI/Bollinger ~random.
+- **Inverting trend signals flips IC positive** (InvIchimoku +0.069 — strongest
+  predictor found). Confirms 1h crypto MEAN-REVERTS; trend-following is backwards.
+- **Confidence score is invalid** — forward return is non-monotonic across score
+  buckets; the highest-confidence bucket was the WORST.
+- **Holding-period analysis:** edge builds from 1H to a peak at 48-72H, then dies
+  by 1 week. Gross edge per trade first exceeds the 1.30% round-trip cost at ~72H
+  — but even there a real (non-tail) system isn't profitable (`mr_validation.py`,
+  `horizon_discovery.py` Phase 4).
+- **Mean-reversion rewrite** (`core/mean_reversion.py`): genuinely positive IC and
+  profitable at ZERO fees (+11.7% avg), but -76% after retail fees. Edge is real
+  but ~11x too small to beat costs. SUB-FEE, not deployable.
+
+## Timeframe inversion (where the edge actually lives)
+
+`htf_systems.py` — native DAILY/WEEKLY systems over 6.8y, fees on:
+- Weekly Trend Following BEATS Buy&Hold on return, Sharpe AND drawdown
+  (BTC +531%/Sh0.85/-60%DD; ETH +1009%/Sh0.89/-57%DD).
+- Daily Mean-Reversion LOSES (-27%/-55%).
+- **The trend relationship INVERTS with timeframe:** fade trend at 1h, follow
+  trend at daily/weekly. The bot was trend-following on the one timeframe where
+  trend-following is wrong.
+
+## Weekly-Trend deployability audit (15-phase, `wtf_robustness.py`)
+
+Even the best candidate FAILS deployment: parameter- and cost-robust, but
+out-of-sample collapses (IS PF 5.34 -> OOS PF 0.43, Sharpe +0.80 -> -0.41),
+profitable only 3/8 years, edge is 100% bull-regime beta. Verdict: NOT deployable
+as alpha — it is drawdown-controlled long beta. The integrated rotation+regime
+redesign (`core/rotation_strategy.py`) also FAILED `validate.py` (OOS -6%, Sharpe 0.91).
+
+## Permanent guardrails added this round
+- `validate.py` — unified deployability GATE (OOS PF>1.2, Sharpe>1.0, positive
+  OOS CAGR, cost-robust, walk-forward stable). Nothing goes to paper without it.
+- `ENGINE_1H_LIVE_ENABLED=False` — the anti-predictive 1h engine is hard-blocked
+  from real orders regardless of DRY_RUN.
+- ML signal predictor rebuilt to 3-class (long/short/sideways) — short is now a
+  LEARNED class, not 1-P(long). Correctness fix; AUC still ~0.55 (weak).
+
+## Config tuned to the evidence
+WATCHLIST -> BTC/ETH/SOL only (alts bled worst). SENTIMENT_WEIGHT 1->0 (no edge).
+ML_SCALE_POSITIONS True->False (confidence invalid). ENTRY_ORDER_TYPE taker->maker
+(cut fee drag ~33%). MIN_WIN_FEE_MULTIPLE 3->4. ML_RETRAIN_HOURS 12->6.
+
+## FINAL STANDING CONCLUSION (unchanged, now over-proven)
+No retail TA strategy — simple or complex, 1h or daily, long or short, trend or
+mean-reversion, single-coin or rotation — passes an honest out-of-sample + cost
+gate as ALPHA. The only thing that clears the bar is slow trend-following
+(`sma_bot.py`) used for DRAWDOWN CONTROL on quality assets (BTC/ETH). Trade rarely,
+pay maker fees, hold quality, sidestep bear markets. That is the whole game.
