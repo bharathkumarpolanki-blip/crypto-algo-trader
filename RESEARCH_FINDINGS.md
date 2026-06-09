@@ -144,3 +144,78 @@ mean-reversion, single-coin or rotation — passes an honest out-of-sample + cos
 gate as ALPHA. The only thing that clears the bar is slow trend-following
 (`sma_bot.py`) used for DRAWDOWN CONTROL on quality assets (BTC/ETH). Trade rarely,
 pay maker fees, hold quality, sidestep bear markets. That is the whole game.
+
+# Lessons Learned
+
+This section captures the methodological lessons from the full strategy-search and
+forensic-validation effort. These matter more than any single backtest number.
+
+## 1. Lookahead bias discovery
+- **How it occurred.** The regime-adaptive engine decided each day's exposure using
+  that same day's *close* (the 200d SMA, slope, and trend gate all included
+  `close[T]`), then applied that exposure to the *same day's* return. That is
+  same-bar lookahead: trading on information not available until the bar had
+  already closed.
+- **How it was detected.** A final forensic pass re-ran the strategy with the
+  decision lagged one bar (decide on `close[T]`, earn `bret[T+1]` — the only
+  realistic alignment). The audit explicitly compared lag-0 vs lag-1.
+- **Why it invalidated previous results.** Under realistic T+1 execution the
+  regime system collapsed: **Sharpe 1.46 → 0.50, CAGR +65.6% → +13.1%, MaxDD
+  −33% → −76%.** The entire apparent edge — and the earlier "robust / paper-trading
+  candidate" verdict and its walk-forward/OOS numbers — were artifacts of the
+  one-bar lookahead. They were retracted. Slow signals (Weekly SMA) survived the
+  lag; the regime system's edge was almost entirely same-bar crash-day timing.
+
+## 2. Why OOS testing matters
+- Several strategies looked attractive **in-sample**: the 1h engine, daily
+  breakout, rotation, weekly trend, and the regime system all produced
+  good-looking full-sample curves at some point.
+- **Most failed out-of-sample.** Under strict T+1 on the newest 20%: WeeklySMA
+  −14%, Breakout −23%, Regime −22%, Rotation −48% — every candidate lost money on
+  unseen data. Full-sample performance was repeatedly a poor predictor of OOS.
+
+## 3. Why significance testing matters
+- **Sharpe improvements alone were insufficient.** WeeklySMA's Sharpe (0.84) beat
+  buy-and-hold (0.72), which looked like a win.
+- **p-values changed the interpretation.** A permutation test (random timing, same
+  exposure) and a randomized-entry test (same % time invested, random days) both
+  returned **p ≈ 0.12–0.13** — not significant. The bootstrap Sharpe 95% CI was
+  [+0.12, +1.59]. The "edge" could not be statistically distinguished from simply
+  being invested ~55% of the time at random. A higher Sharpe was not, by itself,
+  evidence of skill.
+
+## 4. Difference between alpha and risk management
+- Weekly SMA **improved some risk metrics**: MaxDD −77% → −60%, Calmar 0.37 → 0.51,
+  Ulcer 37.8 → 35.3, Return/MaxDD 5.81 → 8.70.
+- It **did not create excess return.** Attribution showed it *lags* buy-and-hold
+  inside bull markets (captured ~47%), does *worse* in sideways, and adds value
+  only by sitting out bears. Its returns come from *participation* in up-trends,
+  not timing or shorting alpha. It also had a *lower* Sortino than holding.
+
+## 5. Research conclusion
+- **No statistically validated alpha was found** — across 1h/daily/weekly,
+  trend/mean-reversion/breakout/rotation/regime, single-asset and portfolio,
+  long and (attempted) short.
+- **The best result was modest drawdown reduction** (Weekly SMA), and even that is
+  statistically marginal (p ≈ 0.12) and protects only in slow bears (2020, 2022),
+  failing in fast crashes (2021) and choppy bears (2025).
+
+## If this were my project
+I would consider the strategy-search phase **complete**. The most valuable artifact
+is not a trading bot — it is the **validation framework**, which now enforces:
+- T+1 execution enforcement
+- Lookahead detection
+- Walk-forward testing
+- Out-of-sample testing
+- Slippage modeling
+- Monte Carlo analysis
+- Permutation testing
+- Randomized-entry comparisons
+
+That framework is worth more than any single strategy tested, because it prevents
+future research from repeating the same mistakes.
+
+Based on the evidence, the conclusion is:
+**No statistically significant, deployable trading edge was demonstrated.** The
+strongest surviving approach is a drawdown-management overlay that modestly alters
+risk characteristics but does not provide validated alpha.
