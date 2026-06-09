@@ -401,12 +401,21 @@ def run() -> None:
                 config.SMA_PERIOD, config.SMA_SYMBOLS, mode, config.SMA_CHECK_HOURS)
     send_telegram(f"📈 *SMA{config.SMA_PERIOD} trend bot started* — "
                   f"watching {', '.join(config.SMA_SYMBOLS)} ({mode} mode).")
-    while True:
-        try:
-            run_once()
-        except Exception as e:
-            logger.error("Cycle error: %s", e)
-        time.sleep(config.SMA_CHECK_HOURS * 3600)
+    try:
+        while True:
+            try:
+                run_once()
+            except Exception as e:
+                logger.error("Cycle error: %s", e)
+            # Sleep in short slices so Ctrl+C is caught promptly (not stuck for 6h).
+            slept = 0
+            total = config.SMA_CHECK_HOURS * 3600
+            while slept < total:
+                time.sleep(min(1, total - slept))
+                slept += 1
+    except KeyboardInterrupt:
+        logger.info("SMA bot stopped by user (Ctrl+C). Shutting down cleanly.")
+        print("\n👋 SMA bot stopped. State saved — restart any time.")
 
 
 def print_backtest(res: dict) -> None:
