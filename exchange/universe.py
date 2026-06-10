@@ -42,6 +42,8 @@ BLACKLIST = {
     "WBTC/USD", "CBETH/USD", "WETH/USD", "STETH/USD",
     # Micro-cap / high-risk tokens from the bad run
     "BILL/USD", "VVV/USD", "STG/USD",
+    # Ambiguous market ids that crash ccxt's safeMarket() (numeric/colliding ids)
+    "00/USD",
 }
 
 # ── Shared state ──────────────────────────────────────────────────────────────
@@ -77,6 +79,9 @@ def _all_usd_pairs() -> list[str]:
             and m.get("spot", False)
             and m.get("active", False)
             and s not in BLACKLIST
+            # Skip ambiguous numeric-base ids (e.g. "00/USD") that crash ccxt's
+            # safeMarket() due to market-id collisions.
+            and not s.split("/")[0].isdigit()
         ]
         return pairs
     except Exception as e:
@@ -146,6 +151,40 @@ def _btc_regime() -> str:
         return "neutral"
 
 
+def _fetch_tickers_resilient(ex, pairs: list[str]) -> dict:
+    """
+    Fetch 24h tickers without letting ONE unparseable market kill the batch.
+
+    Coinbase via ccxt raises e.g. "safeMarket() requires a fourth argument for
+    00-USD to disambiguate..." for ambiguous market ids (numeric-leading tokens
+    like '00'). A single bad market aborts the whole fetch_tickers() call. We try
+    the fast batch first, then fall back to chunked fetches so a poisoned chunk
+    only loses ~50 symbols instead of the entire universe.
+    """
+    # Fast path: one batch call.
+    try:
+        return ex.fetch_tickers(pairs)
+    except Exception as e:
+        logger.warning("Batch ticker fetch failed (%s) — retrying in chunks", str(e)[:120])
+
+    # Fallback: chunked fetch; skip any chunk that contains a poison market.
+    out: dict = {}
+    CHUNK = 50
+    for i in range(0, len(pairs), CHUNK):
+        chunk = pairs[i:i + CHUNK]
+        try:
+            out.update(ex.fetch_tickers(chunk))
+        except Exception:
+            # Narrow down: fetch this chunk one symbol at a time, skipping bad ids.
+            for sym in chunk:
+                try:
+                    out.update(ex.fetch_tickers([sym]))
+                except Exception:
+                    logger.debug("Skipping unparseable market: %s", sym)
+    logger.info("Resilient ticker fetch recovered %d/%d markets", len(out), len(pairs))
+    return out
+
+
 def refresh_universe(force: bool = False) -> list[str]:
     """
     Re-score all Coinbase USD pairs and update the active watchlist.
@@ -163,10 +202,9 @@ def refresh_universe(force: bool = False) -> list[str]:
     all_pairs = _all_usd_pairs()
     ex = get_public_exchange()
 
-    try:
-        tickers = ex.fetch_tickers(all_pairs)
-    except Exception as e:
-        logger.error("Batch ticker fetch failed: %s", e)
+    tickers = _fetch_tickers_resilient(ex, all_pairs)
+    if not tickers:
+        logger.error("Ticker fetch returned nothing — keeping current watchlist")
         return get_watchlist()
 
     # Step 2: Score every coin

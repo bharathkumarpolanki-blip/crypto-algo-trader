@@ -219,3 +219,47 @@ Based on the evidence, the conclusion is:
 **No statistically significant, deployable trading edge was demonstrated.** The
 strongest surviving approach is a drawdown-management overlay that modestly alters
 risk characteristics but does not provide validated alpha.
+
+# Edge-Discovery Investigation — Final Conclusions (multi-day deep dive)
+
+After exhausting indicator-based strategies, a full alternative-data and
+risk-prediction investigation was run under strict T+1 execution, walk-forward,
+out-of-sample, permutation, and bootstrap validation. All harnesses live in
+`research/`. Honest, negative, and documented so it isn't repeated.
+
+## Everything tested — and the universal result
+| Domain | Approaches | Result |
+|---|---|---|
+| Price/OHLCV | momentum, MR, trend, breakout, rotation, regime, lead-lag | no OOS edge |
+| Cross-sectional | momentum (dollar-neutral), reversal | **real gross edge** (perm p=0.039) but **sub-cost** (net −2.05) and sub-1.0 Sharpe |
+| ML | tree ensembles, interactions | overfit (train IC 0.77 → OOS negative) |
+| Unsupervised | HMM / GMM / KMeans / Bayesian regimes | significant in-sample, **dead OOS** (p 0.18–0.94) |
+| Funding / OI | carry, fade, quadrants, overlays | redundant with price (ΔR² +0.5%, p=0.64); carry skew −0.95 (tail premium) |
+| On-chain | MVRV / NUPL | biggest in-sample IC (−0.23), **dead OOS** (−0.03) |
+| Risk targets | vol / drawdown / crash prediction | signals predict **volatility** (IC up to 0.25) far more than returns — category error confirmed |
+| Fragility Score | composite risk score | survived a single OOS split, then **DESTROYED** by frozen audit |
+
+## Key methodological findings
+1. **Returns are unpredictable OOS; risk (volatility) is predictable** — but mostly
+   via trivial volatility *persistence* (autocorrelation), not novel signals.
+2. **The Fragility Score was overfit.** Frozen audit: out-of-universe IC +0.005
+   (ns); only worked in low-vol; failed small-caps; and the **volatility-control
+   killed it** (raw IC +0.027 → partial IC −0.034). It was vol-persistence in
+   disguise. Retired.
+3. **Production exposure-engine bake-off:** the Fragility engine was the WORST
+   (CAGR −9%, MaxDD −79%, Calmar −0.11 — actively harmful). The **200-day SMA was
+   the best** (Calmar 0.36, MaxDD −68%, exposure-efficiency 44 — ~90% of hold's
+   return at 55% avg exposure). The deployable risk engine is the 200d SMA.
+4. **Forced-flow framing** (ETF flows, dealer gamma, token unlocks, liquidations,
+   index rebalances) is the only genuinely-untested frontier with sound mechanisms
+   — but it requires paid data and was analytically demolished for ETF flows
+   (≥90% of impact pre-publication; flow is majority sentiment-following-price).
+
+## FINAL CONCLUSION
+No statistically-significant, out-of-sample, cost-surviving **alpha** exists in any
+freely-available data we tested — price, derivatives, on-chain, supervised or
+unsupervised. The only deployable artifact is **risk-managed crypto-beta exposure
+via the 200-day SMA** (`sma_bot.py`) — drawdown reduction, not alpha — plus the
+**`validate.py` deployability gate**, which is the single most valuable output
+(it caught a lookahead bug and prevented deploying overfit strategies). Trade
+rarely, pay maker fees, hold quality (BTC/ETH), sidestep bears. That is the game.
