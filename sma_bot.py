@@ -57,8 +57,16 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> None:
+    # Atomic write: dump to a temp file, fsync, then rename over the real file.
+    # A crash/power-loss mid-write can't corrupt sma_state.json (the rename is
+    # atomic on POSIX); the old state stays intact until the new one is complete.
     try:
-        json.dump(state, open(STATE_FILE, "w"), indent=2)
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, STATE_FILE)
     except Exception as e:
         logger.warning("Could not save state: %s", e)
 
@@ -91,10 +99,19 @@ def evaluate() -> dict:
     # Need enough daily history for BOTH the 200-day SMA and ~30 weeks of resample
     need = max(period + 60, config.SMA_WEEKLY_PERIOD * 7 + 60)
     for sym in config.SMA_SYMBOLS:
-        df = fetch_ohlcv(sym, "1d", limit=need)
-        if df.empty or len(df) < period + 1:
-            logger.warning("Not enough daily data for %s (have %d, need %d)",
-                           sym, len(df), period + 1)
+        # Light retry — a transient network/API blip shouldn't drop a symbol from
+        # the cycle (and, via rebalance, must never trigger a spurious sell).
+        df = None
+        for attempt in range(2):
+            try:
+                df = fetch_ohlcv(sym, "1d", limit=need)
+                if df is not None and not df.empty:
+                    break
+            except Exception as e:
+                logger.warning("fetch %s attempt %d failed: %s", sym, attempt + 1, e)
+                time.sleep(2)
+        if df is None or df.empty or len(df) < period + 1:
+            logger.warning("Not enough daily data for %s (skip cycle; positions untouched)", sym)
             continue
         close = float(df["close"].iloc[-1])
         sma   = float(df["close"].rolling(period).mean().iloc[-1])
@@ -121,11 +138,15 @@ def target_holdings(signals: dict) -> set[str]:
 # ── Trading (only when not alert-only) ────────────────────────────────────────
 
 def rebalance(signals: dict, state: dict) -> None:
-    target  = target_holdings(signals)
-    current = set(state["holdings"].keys())
+    target    = target_holdings(signals)
+    current   = set(state["holdings"].keys())
+    evaluated = set(signals.keys())    # coins we SUCCESSFULLY got data for this cycle
 
-    sells = current - target          # fell below SMA → exit
-    buys  = target - current          # crossed above SMA → enter
+    # Only sell a held coin we actually evaluated and that is below its SMA. A held
+    # coin missing from `signals` (its data fetch failed this cycle) is LEFT ALONE —
+    # never liquidate a position because of a transient data/network error.
+    sells = (current & evaluated) - target   # evaluated AND fell below SMA → exit
+    buys  = target - current                 # crossed above SMA → enter
 
     # ── Alert-only mode: notify on any change, don't trade ────────────────────
     if config.SMA_ALERT_ONLY:
