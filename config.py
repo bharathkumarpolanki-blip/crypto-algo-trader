@@ -203,3 +203,61 @@ SMA_BUFFER_PCT   = 0.5                       # require price this % above/below 
 # Weinstein stage-analysis trend filter). Slow TF sets direction; daily times it.
 SMA_USE_WEEKLY_GATE = True
 SMA_WEEKLY_PERIOD   = 30                      # weeks (30-week SMA ≈ long-term weekly trend)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  TRADINGVIEW WEBHOOK BOT  (tradingview_bot.py — receive alerts, execute on CB)
+# ══════════════════════════════════════════════════════════════════════════════
+# TradingView sends alert messages (JSON) to a public webhook URL when an
+# indicator/strategy fires. This bot receives them, validates, risk-checks, and
+# either paper-trades (default) or executes real Coinbase orders. It runs its own
+# Flask app serving BOTH the webhook endpoint and a dedicated dashboard.
+#
+# IMPORTANT — TradingView only POSTs to ports 80/443 on a PUBLIC URL. Run this
+# behind a tunnel/reverse proxy (ngrok, cloudflared, Caddy) that forwards 443 →
+# WEBHOOK_PORT. See WEBHOOK.md.
+
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "0.0.0.0")
+WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", 8090))
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")   # POST path TradingView hits
+
+# ── Security ──────────────────────────────────────────────────────────────────
+# A public webhook that can place trades MUST be authenticated. TradingView has
+# no signing, so the convention is a shared passphrase embedded in the alert JSON
+# ({"passphrase": "..."}). Compared with hmac.compare_digest (constant-time).
+# REQUIRED to be non-empty before any live trading is armed.
+WEBHOOK_PASSPHRASE = os.getenv("WEBHOOK_PASSPHRASE", "")
+
+# Optional: only accept POSTs from TradingView's published webhook IPs. Leave the
+# allowlist OFF if you sit behind a tunnel/proxy (the source IP becomes the
+# proxy's). These are TradingView's documented egress IPs as of 2024.
+WEBHOOK_IP_ALLOWLIST_ENABLED = os.getenv("WEBHOOK_IP_ALLOWLIST", "false").lower() == "true"
+WEBHOOK_ALLOWED_IPS = [
+    "52.89.214.238", "34.212.75.30", "54.218.53.128", "52.32.178.7",
+]
+
+# ── Live-trading arm switch (defence in depth) ────────────────────────────────
+# Real Coinbase orders are placed ONLY when ALL are true:
+#   1. DRY_RUN = False           (global real-money switch)
+#   2. WEBHOOK_LIVE_ENABLED = True (this bot's own arm switch)
+#   3. API key passes the auth check at startup
+#   4. WEBHOOK_PASSPHRASE is set  (no unauthenticated live trading)
+# Otherwise the bot PAPER-trades (simulated fills at the live ticker price) —
+# fully functional, just no real orders. Mirrors ENGINE_1H_LIVE_ENABLED above.
+WEBHOOK_LIVE_ENABLED = os.getenv("WEBHOOK_LIVE_ENABLED", "false").lower() == "true"
+
+# ── Risk caps (protect against malformed / hostile alerts) ────────────────────
+# Only symbols on this allowlist can be traded. An empty list means "allow any
+# symbol TradingView sends" — NOT recommended when live. Coinbase pairs (BASE/USD).
+WEBHOOK_SYMBOL_ALLOWLIST = ["BTC/USD", "ETH/USD", "SOL/USD"]
+
+WEBHOOK_START_CAPITAL_USD   = float(os.getenv("WEBHOOK_START_CAPITAL_USD", 1000))  # paper cash seed
+WEBHOOK_DEFAULT_ORDER_USD   = float(os.getenv("WEBHOOK_DEFAULT_ORDER_USD", 100))   # if alert omits size
+WEBHOOK_MAX_ORDER_USD       = float(os.getenv("WEBHOOK_MAX_ORDER_USD", 500))       # hard per-trade cap
+WEBHOOK_MIN_ORDER_USD       = float(os.getenv("WEBHOOK_MIN_ORDER_USD", 5))         # exchange dust floor
+WEBHOOK_MAX_OPEN_POSITIONS  = int(os.getenv("WEBHOOK_MAX_OPEN_POSITIONS", 10))
+WEBHOOK_MAX_DAILY_LOSS_USD  = float(os.getenv("WEBHOOK_MAX_DAILY_LOSS_USD", 0))    # 0 = off; kill switch
+WEBHOOK_ALLOW_SHORT         = False   # Coinbase spot is long-only; sell = reduce/close a long
+
+# How often the background loop marks open positions to market (equity curve).
+WEBHOOK_MARK_INTERVAL_SEC   = int(os.getenv("WEBHOOK_MARK_INTERVAL_SEC", 30))

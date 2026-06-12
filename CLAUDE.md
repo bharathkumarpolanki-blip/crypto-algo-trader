@@ -38,7 +38,31 @@ notifications/ — notifier (Telegram, non-blocking)
 ml/          — feature_builder, preprocessor, signal_predictor,
                regime_classifier, extrema_predictor, auto_tuner (FreqAI-inspired)
 ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
+webhook/     — TradingView webhook bot: store (ledger), engine (parse/risk/exec),
+               server (Flask: /webhook + dashboard).  Entry: tradingview_bot.py
 ```
+
+## TradingView webhook bot (tradingview_bot.py — see WEBHOOK.md)
+
+Self-contained service (like sma_bot.py): receives TradingView alerts on a
+webhook URL and books Coinbase trades, with its own dashboard (default port 8090)
+and ledger (`webhook_state.json`, atomic writes). Independent of the 1h bot.
+
+- **Modes:** PAPER by default (simulated fills at the live ticker). Real orders
+  need ALL of: `DRY_RUN=False` + `WEBHOOK_LIVE_ENABLED=True` + `WEBHOOK_PASSPHRASE`
+  set + a valid API key (defence-in-depth, mirrors `ENGINE_1H_LIVE_ENABLED`).
+- **Security:** passphrase in the alert JSON, constant-time compared
+  (`hmac.compare_digest`); symbol allowlist; per-trade USD cap; max-open-positions;
+  daily-loss kill switch; idempotency by alert `id`; optional TV-IP allowlist; 64 KB
+  body cap. The `_trade_lock` serializes risk-check→execute→record so concurrent
+  alerts can't double-spend.
+- **Spot reality:** Coinbase spot is long-only. `buy` opens/adds a long, `sell`/
+  `close` reduces/closes it, `short` is a safe no-op (logged, not an error).
+- **Execution reuse:** live orders go through `place_market_order_filled`; paper
+  fills are simulated from `fetch_ticker`. P&L is TRUE NET of round-trip fees.
+- **Caveat:** TradingView only POSTs to ports 80/443 on a PUBLIC URL → run behind
+  a tunnel (ngrok/cloudflared) or reverse proxy. Don't enable the IP allowlist
+  behind a proxy (source IP becomes the proxy's).
 
 ## Key facts
 

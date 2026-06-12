@@ -22,3 +22,8 @@ models/
 # SMA bot runtime state
 sma_state.json
 sma_bot.log
+
+# Webhook bot runtime state (contains live position data — not for version control)
+webhook_state.json
+webhook_state.json.tmp
+webhook_bot.log
