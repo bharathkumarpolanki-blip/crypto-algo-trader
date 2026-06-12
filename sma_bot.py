@@ -35,10 +35,14 @@ from exchange.market_data import (fetch_ohlcv, get_quote_balance,
                                   place_market_order_filled)
 from notifications.notifier import send_telegram
 
+from logging.handlers import TimedRotatingFileHandler
+# Daily log rotation; keep ~30 days then auto-delete older files.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] sma_bot: %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("sma_bot.log")],
+    handlers=[logging.StreamHandler(),
+              TimedRotatingFileHandler("sma_bot.log", when="midnight",
+                                       backupCount=30, utc=True)],
 )
 logger = logging.getLogger("sma_bot")
 

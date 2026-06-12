@@ -28,10 +28,14 @@ import config
 from webhook import engine, server
 from notifications.notifier import send_telegram
 
+from logging.handlers import TimedRotatingFileHandler
+# Daily log rotation; keep ~30 days then auto-delete older files.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] webhook: %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("webhook_bot.log")],
+    handlers=[logging.StreamHandler(),
+              TimedRotatingFileHandler("webhook_bot.log", when="midnight",
+                                       backupCount=30, utc=True)],
 )
 logger = logging.getLogger("webhook")
 

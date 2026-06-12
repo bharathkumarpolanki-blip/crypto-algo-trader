@@ -43,12 +43,15 @@ from notifications.notifier import (notify_signal, notify_trade,
 from ui.dashboard import start_server, is_paused
 
 colorama_init(autoreset=True)
+from logging.handlers import TimedRotatingFileHandler
+# Daily log rotation; keep ~30 days of history then auto-delete older files.
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else "INFO"),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("trading_bot.log"),
+        TimedRotatingFileHandler("trading_bot.log", when="midnight",
+                                 backupCount=30, utc=True),
     ],
 )
 logger = logging.getLogger("bot")
