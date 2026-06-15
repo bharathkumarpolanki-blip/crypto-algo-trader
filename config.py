@@ -188,7 +188,9 @@ CB_COOLDOWN_HOURS         = 6      # auto-resume this long after a trip
 # when it drops below. Equal-weight across coins currently in uptrend. This is
 # the ONLY active approach our research endorsed — it doesn't beat buy & hold on
 # return, but it roughly halves the drawdown. Shares DRY_RUN with the main bot.
-SMA_SYMBOLS      = ["BTC/USD", "ETH/USD"]   # quality assets only
+SMA_SYMBOLS      = [s.strip() for s in                      # configurable via .env:
+                    os.getenv("SMA_SYMBOLS", "BTC/USD,ETH/USD").split(",")]
+                   # e.g. SMA_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
 SMA_PERIOD       = 200                       # trend filter length (days)
 SMA_CHECK_HOURS  = 6                         # how often to re-check (daily candle
                                              # only changes once/day; 6h catches it)
