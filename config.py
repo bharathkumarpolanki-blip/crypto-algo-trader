@@ -192,8 +192,9 @@ SMA_SYMBOLS      = ["BTC/USD", "ETH/USD"]   # quality assets only
 SMA_PERIOD       = 200                       # trend filter length (days)
 SMA_CHECK_HOURS  = 6                         # how often to re-check (daily candle
                                              # only changes once/day; 6h catches it)
-SMA_ALERT_ONLY   = True                      # True = only Telegram alerts, no trades
-                                             # (safest). False = actually trade it.
+SMA_ALERT_ONLY   = False                     # False = actually trade it (PAPER while
+                                             # DRY_RUN=True; LIVE only if DRY_RUN=False).
+                                             # True = only Telegram alerts, no trades.
 SMA_BUFFER_PCT   = 0.5                       # require price this % above/below the
                                              # SMA to flip — avoids whipsaw on tiny
                                              # crossings right at the line.

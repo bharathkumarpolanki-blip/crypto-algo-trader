@@ -31,3 +31,6 @@ webhook_bot.log
 # SSH private keys (never commit)
 *.pem
 *.key
+
+# Rotated log files (TimedRotatingFileHandler adds a date suffix)
+*.log.*
