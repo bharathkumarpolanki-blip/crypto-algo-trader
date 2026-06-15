@@ -27,3 +27,7 @@ sma_bot.log
 webhook_state.json
 webhook_state.json.tmp
 webhook_bot.log
+
+# SSH private keys (never commit)
+*.pem
+*.key
