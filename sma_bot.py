@@ -420,10 +420,36 @@ def run_once() -> None:
     print_status(signals, state)
 
 
+def _maybe_start_dashboard() -> None:
+    """Serve the web dashboard from this process (so bot.py isn't needed for UI).
+    Non-fatal: a missing dependency or busy port just logs and the bot keeps
+    running headless. Open the '📈 SMA Trend' tab."""
+    if not getattr(config, "SMA_DASHBOARD", False):
+        return
+    port = getattr(config, "SMA_DASHBOARD_PORT", 8081)
+    # Fail fast & cleanly if the port is already taken (e.g. bot.py is running).
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if s.connect_ex(("127.0.0.1", port)) == 0:
+            logger.warning("Dashboard port %d already in use (bot.py running?) — "
+                           "skipping dashboard. Open the existing one or stop it.", port)
+            return
+    finally:
+        s.close()
+    try:
+        from ui.dashboard import start_server
+        start_server(port=port)
+        print(f"  🖥  Dashboard: http://localhost:{port}   (open the 📈 SMA Trend tab)")
+    except Exception as e:
+        logger.warning("Could not start dashboard: %s (running headless)", e)
+
+
 def run() -> None:
     mode = "ALERT-ONLY" if config.SMA_ALERT_ONLY else ("PAPER" if config.DRY_RUN else "LIVE")
     logger.info("SMA%d daily trend bot starting | symbols=%s | mode=%s | check every %dh",
                 config.SMA_PERIOD, config.SMA_SYMBOLS, mode, config.SMA_CHECK_HOURS)
+    _maybe_start_dashboard()
     send_telegram(f"📈 *SMA{config.SMA_PERIOD} trend bot started* — "
                   f"watching {', '.join(config.SMA_SYMBOLS)} ({mode} mode).")
     try:

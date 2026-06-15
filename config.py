@@ -203,6 +203,11 @@ SMA_BUFFER_PCT   = 0.5                       # require price this % above/below 
 # Weinstein stage-analysis trend filter). Slow TF sets direction; daily times it.
 SMA_USE_WEEKLY_GATE = True
 SMA_WEEKLY_PERIOD   = 30                      # weeks (30-week SMA ≈ long-term weekly trend)
+# Self-served dashboard: when True, `python3 sma_bot.py` also serves the web
+# dashboard (so you don't need to run bot.py just for the UI). Open the
+# "📈 SMA Trend" tab. Uses the same Flask app; reads sma_state.json live.
+SMA_DASHBOARD       = True
+SMA_DASHBOARD_PORT  = 8081                    # same port as bot.py — run ONE of them
 
 
 # ══════════════════════════════════════════════════════════════════════════════
