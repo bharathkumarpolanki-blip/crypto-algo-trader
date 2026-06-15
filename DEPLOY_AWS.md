@@ -1,9 +1,12 @@
 # Deploying on AWS EC2 (Free Tier) — sma_bot.py + LuxAlgoSMCBot
 
-Run both bots 24/7 on one free EC2 instance. `sma_bot.py` (from the
-`crypto-algo-trader` repo) has no web server — it just sends Telegram alerts /
-trades. **LuxAlgoSMCBot** needs a public HTTPS URL for the TradingView webhook,
-served via Caddy.
+Run both bots 24/7 on one free EC2 instance.
+
+- **`sma_bot.py`** (from `crypto-algo-trader`) runs on port **8081** and serves
+  its own web dashboard (SMA trend status, paper P&L, backtest chart). Exposed
+  via a second Caddy vhost so you get HTTPS on a second DuckDNS subdomain.
+- **LuxAlgoSMCBot** needs a public HTTPS URL for the TradingView webhook,
+  served via Caddy on port **8095**.
 
 > Placeholders below: replace `YOUR_ELASTIC_IP`, `your-key.pem`, and
 > `YOUR-SUBDOMAIN.duckdns.org` with your real values. Never commit your `.pem`
@@ -23,6 +26,7 @@ Each block is marked **(Mac)** or **(EC2)**.
    - SSH **22** → *My IP*
    - HTTP **80** → *Anywhere (0.0.0.0/0)*
    - HTTPS **443** → *Anywhere (0.0.0.0/0)*
+   *(Caddy proxies both bots over 443 — no need to expose 8081 or 8095 directly.)*
 6. **Storage:** 20–30 GB gp3.
 7. **Launch.**
 8. *(Recommended)* **Elastic IP:** EC2 → Network & Security → **Elastic IPs** →
@@ -66,17 +70,19 @@ git clone https://github.com/bharathkumarpolanki-blip/LuxAlgoSMCBot.git
 ```
 
 ## E. Set up sma_bot.py — lean install (EC2)
-`sma_bot.py` needs only 4 packages (skip the ML stack `bot.py` uses):
+`sma_bot.py` skips the heavy ML stack. Install only what it needs — including
+`flask` and `flask-cors` for its built-in web dashboard (port 8081):
 ```bash
 cd ~/trading-bot-ccode
 python3 -m venv venv && ./venv/bin/pip install -U pip
-./venv/bin/pip install ccxt pandas python-dotenv requests
+./venv/bin/pip install ccxt pandas numpy python-dotenv requests flask flask-cors
 ```
 **Copy your `.env` up — run on (Mac):**
 ```bash
 scp -i ~/Downloads/your-key.pem ~/trading-bot-ccode/.env ubuntu@YOUR_ELASTIC_IP:~/trading-bot-ccode/.env
 ```
-> `sma_bot.py` defaults to `SMA_ALERT_ONLY=True` (Telegram alerts only, no trades).
+> `SMA_ALERT_ONLY=False` and `DRY_RUN=True` in `config.py` → **PAPER** mode.
+> The dashboard starts automatically with the bot (`SMA_DASHBOARD=True`).
 
 ## F. Set up LuxAlgoSMCBot (EC2)
 ```bash
@@ -128,25 +134,46 @@ sudo systemctl enable --now smabot luxsmc
 systemctl status luxsmc --no-pager
 ```
 
-## H. HTTPS for the webhook — Caddy + DuckDNS (EC2)
-1. At <https://www.duckdns.org> create `YOUR-SUBDOMAIN.duckdns.org` → set IP = your Elastic IP.
+## H. HTTPS for both dashboards — Caddy + DuckDNS (EC2)
+Create **two** DuckDNS subdomains — both pointing at your Elastic IP:
+
+| Subdomain | Bot | Port |
+|-----------|-----|------|
+| `YOUR-SMC-SUBDOMAIN.duckdns.org` | LuxAlgoSMCBot (webhook + dashboard) | 8095 |
+| `YOUR-SMA-SUBDOMAIN.duckdns.org` | sma_bot.py dashboard | 8081 |
+
+1. At <https://www.duckdns.org> create both subdomains → IP = your Elastic IP.
 2. ```bash
    sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-   YOUR-SUBDOMAIN.duckdns.org {
+   # LuxAlgo SMC Bot — TradingView webhook + dashboard
+   YOUR-SMC-SUBDOMAIN.duckdns.org {
        reverse_proxy 127.0.0.1:8095
+   }
+
+   # SMA200 Trend Bot — dashboard only (no public webhook needed)
+   YOUR-SMA-SUBDOMAIN.duckdns.org {
+       reverse_proxy 127.0.0.1:8081
    }
    EOF
    sudo systemctl reload caddy
    ```
-3. Webhook URL → `https://YOUR-SUBDOMAIN.duckdns.org/webhook` (put in TradingView alerts).
-   Dashboard → `https://YOUR-SUBDOMAIN.duckdns.org/`.
+3. URLs:
+   - **SMC webhook** (put in TradingView alerts): `https://YOUR-SMC-SUBDOMAIN.duckdns.org/webhook`
+   - **SMC dashboard**: `https://YOUR-SMC-SUBDOMAIN.duckdns.org/`
+   - **SMA dashboard**: `https://YOUR-SMA-SUBDOMAIN.duckdns.org/` (open the 📈 SMA Trend tab)
 
 ## I. Verify + operate (EC2)
 ```bash
 journalctl -u luxsmc -f                 # SMC bot live logs
 journalctl -u smabot -n 50 --no-pager   # SMA bot
-# update later:
+
+# Test that both dashboards are up (replace with your real subdomains):
+curl -s https://YOUR-SMC-SUBDOMAIN.duckdns.org/ | head -5
+curl -s https://YOUR-SMA-SUBDOMAIN.duckdns.org/ | head -5
+
+# Update bots later:
 cd ~/LuxAlgoSMCBot && git pull && ./venv/bin/pip install -r requirements.txt && sudo systemctl restart luxsmc
+cd ~/trading-bot-ccode && git pull -b dev && sudo systemctl restart smabot
 ```
 
 ---
