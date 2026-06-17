@@ -1139,8 +1139,8 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
     <div style="padding:10px 16px;font-size:12px;color:var(--muted)">
       Long spot + short perp of equal size → delta-neutral. Earns the perp funding
       premium (feasibility 2020-26: BTC ~+12%/yr, ETH ~+14%/yr net, positive through
-      the 2022 bear). "Smart" mode sits FLAT on negative funding. Data: OKX.
-      <b>PAPER — no real orders.</b><br>
+      the 2022 bear). "Smart" mode sits FLAT on negative funding. Data venue is shown
+      in the header above. <b>PAPER — no real orders.</b><br>
       <b>⚠ Note:</b> counterparty / exchange-failure risk is NOT in these numbers — it
       is the dominant real-world risk and the core of Phase 2.
     </div>
