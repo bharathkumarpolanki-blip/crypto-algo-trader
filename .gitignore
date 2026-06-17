@@ -34,3 +34,6 @@ webhook_bot.log
 
 # Rotated log files (TimedRotatingFileHandler adds a date suffix)
 *.log.*
+
+# Carry harvester paper state
+carry_state.json

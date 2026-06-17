@@ -413,6 +413,34 @@ def api_sma_backtest_status():
     return jsonify(st.get_sma_backtest())
 
 
+# ── Carry harvester API ──────────────────────────────────────────────────────
+@app.route("/api/carry/paper", methods=["GET"])
+def api_carry_paper():
+    """
+    Live PAPER book from a separately-running carry_bot.py loop. Reads
+    carry_state.json (the cross-process channel — carry_bot runs in its own
+    process). Reuses carry_bot.portfolio_summary so the UI and CLI never drift.
+    """
+    try:
+        import json, os
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "carry_state.json")
+        if not os.path.exists(path):
+            return jsonify({"running": False, "msg": "carry_bot.py has not run yet"})
+        state = json.load(open(path))
+        if not state.get("books"):
+            return jsonify({"running": False, "msg": "no carry books yet"})
+        import config as _cfg
+        import carry_bot
+        s = carry_bot.portfolio_summary(state)
+        return jsonify({"running": True, "last_cycle": state.get("last_cycle"),
+                        "cycles": state.get("cycles", 0), "smart": _cfg.CARRY_SMART,
+                        "notional": _cfg.CARRY_NOTIONAL_USD, "leverage": _cfg.CARRY_LEVERAGE,
+                        **s})
+    except Exception as e:
+        logger.error("Carry paper read failed: %s", e)
+        return jsonify({"running": False, "error": str(e)}), 500
+
+
 # ── Auto-Tuner API ─────────────────────────────────────────────────────────────
 
 @app.route("/api/tuner/run", methods=["POST"])
@@ -814,6 +842,7 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
   <div class="tab" onclick="switchTab('universe')">🌍 Universe</div>
   <div class="tab" onclick="switchTab('ml')">🧠 Machine Learning</div>
   <div class="tab" onclick="switchTab('sma')">📈 SMA Trend</div>
+  <div class="tab" onclick="switchTab('carry')">🪙 Carry</div>
 </div>
 
 <!-- ═══════════════════════════════ LIVE TAB ════════════════════════════════ -->
@@ -1098,22 +1127,106 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
 </main>
 </div><!-- /tab-sma -->
 
+<!-- ═══════════════════════════════ CARRY TAB ════════════════════════════════ -->
+<div id="tab-carry" class="tab-panel">
+<main class="main">
+  <div class="card">
+    <div class="card-header">
+      <h2>🪙 Carry Harvester — Delta-Neutral Funding (PAPER)</h2>
+      <span class="last-update" id="carryUpd">—</span>
+    </div>
+    <div style="padding:10px 16px;font-size:12px;color:var(--muted)">
+      Long spot + short perp of equal size → delta-neutral. Earns the perp funding
+      premium (feasibility 2020-26: BTC ~+12%/yr, ETH ~+14%/yr net, positive through
+      the 2022 bear). "Smart" mode sits FLAT on negative funding. Data: OKX.
+      <b>PAPER — no real orders.</b><br>
+      <b>⚠ Note:</b> counterparty / exchange-failure risk is NOT in these numbers — it
+      is the dominant real-world risk and the core of Phase 2.
+    </div>
+    <div class="bt-summary" id="carryCards">
+      <div class="empty" style="padding:10px 16px">carry_bot.py not running yet.</div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Token</th><th>Status</th><th>Funding APR</th><th>Funding $</th>
+          <th>Fees $</th><th>Basis $</th><th>Net $</th><th>~Net APR</th><th>Flips</th>
+          <th>Liq dist</th></tr></thead>
+        <tbody id="carryBody"><tr><td colspan="10" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</div><!-- /tab-carry -->
+
 <script>
 // ── Tab switching ──────────────────────────────────────────────────────────────
-let smaPoll = null;
+let smaPoll = null, carryPoll = null;
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml','sma'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['live','backtest','universe','ml','sma','carry'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'backtest') loadBacktestState();
   if (name === 'universe') loadUniverseState();
   if (name === 'ml')       loadMLState();
-  // Auto-refresh the SMA paper activity only while the SMA tab is open.
-  if (smaPoll) { clearInterval(smaPoll); smaPoll = null; }
+  // Auto-refresh paper activity only while the relevant tab is open.
+  if (smaPoll)   { clearInterval(smaPoll);   smaPoll = null; }
+  if (carryPoll) { clearInterval(carryPoll); carryPoll = null; }
   if (name === 'sma') {
     loadSmaStatus(); loadSmaPaper();
     smaPoll = setInterval(loadSmaPaper, 5000);   // poll paper P&L every 5s
   }
+  if (name === 'carry') {
+    loadCarryPaper();
+    carryPoll = setInterval(loadCarryPaper, 5000);
+  }
+}
+
+// ── Carry tab ───────────────────────────────────────────────────────────────
+async function loadCarryPaper() {
+  try {
+    const r = await fetch('/api/carry/paper'); const d = await r.json();
+    const cards = document.getElementById('carryCards');
+    const body  = document.getElementById('carryBody');
+    const upd   = document.getElementById('carryUpd');
+    if (!d.running) {
+      upd.textContent = '';
+      cards.innerHTML = `<div class="empty" style="padding:10px 16px">${d.msg || d.error || 'carry_bot.py not running'}</div>`;
+      body.innerHTML  = '<tr><td colspan="10" class="empty">—</td></tr>';
+      return;
+    }
+    upd.textContent = `${fmt(d.days,2)}d · ${d.cycles} cycles · smart ${d.smart?'on':'off'}`
+      + (d.last_cycle ? ' · ' + new Date(d.last_cycle).toLocaleString() : '');
+    const ncls = d.tot_net>=0?'pos':'neg', s=d.tot_net>=0?'+':'';
+    const napr = (d.net_apr==null) ? 'warming up' : (d.net_apr>=0?'+':'')+fmt(d.net_apr,1)+'%';
+    cards.innerHTML =
+      `<div class="bt-card"><div class="bt-card-label">Funding banked</div><div class="bt-card-val pos">+$${fmt(d.tot_funding,2)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">Fees</div><div class="bt-card-val">$${fmt(d.tot_fees,2)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">Net P&L</div><div class="bt-card-val ${ncls}">${s}$${fmt(d.tot_net,2)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">Capital</div><div class="bt-card-val">$${fmt(d.tot_cap,0)}</div></div>
+       <div class="bt-card"><div class="bt-card-label">Blended net APR</div><div class="bt-card-val">${napr}</div></div>`;
+    if (!d.rows || !d.rows.length) {
+      body.innerHTML = '<tr><td colspan="10" class="empty">No active books</td></tr>';
+    } else {
+      body.innerHTML = d.rows.map(x => {
+        const stt = x.status==='ON' ? '<span class="badge badge-long">🟢 ON</span>'
+                                    : '<span class="badge badge-short">💤 FLAT</span>';
+        const ncl = x.net>=0?'pos':'neg', ns=x.net>=0?'+':'';
+        const acl = x.apr_now>=0?'pos':'neg';
+        const ea  = (x.est_apr==null) ? '<span class="neu">warmup</span>'
+                    : `<span class="${x.est_apr>=0?'pos':'neg'}">${x.est_apr>=0?'+':''}${fmt(x.est_apr,1)}%</span>`;
+        const liq = (x.liq && x.liq.dist_pct!=null) ? (x.liq.dist_pct>=0?'+':'')+fmt(x.liq.dist_pct,1)+'%' : '—';
+        return `<tr><td><strong>${x.token}</strong></td><td>${stt}</td>
+          <td class="mono ${acl}">${x.apr_now>=0?'+':''}${fmt(x.apr_now,1)}%</td>
+          <td class="mono pos">+$${fmt(x.funding,2)}</td>
+          <td class="mono">$${fmt(x.fees,2)}</td>
+          <td class="mono">${x.residual>=0?'+':''}$${fmt(x.residual,2)}</td>
+          <td class="mono ${ncl}">${ns}$${fmt(x.net,2)}</td>
+          <td class="mono">${ea}</td>
+          <td class="mono">${x.flips}</td>
+          <td class="mono">${liq}</td></tr>`;
+      }).join('');
+    }
+  } catch(e) { /* leave placeholder */ }
 }
 
 // ── SMA Trend tab ───────────────────────────────────────────────────────────

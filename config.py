@@ -269,3 +269,35 @@ WEBHOOK_ALLOW_SHORT         = False   # Coinbase spot is long-only; sell = reduc
 
 # How often the background loop marks open positions to market (equity curve).
 WEBHOOK_MARK_INTERVAL_SEC   = int(os.getenv("WEBHOOK_MARK_INTERVAL_SEC", 30))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CARRY HARVESTER  (carry_bot.py — delta-neutral funding harvest, PAPER)
+# ══════════════════════════════════════════════════════════════════════════════
+# Earns the perpetual-swap funding premium via long-spot + short-perp of equal
+# coin qty (DELTA-NEUTRAL — no price view). Feasibility (Binance funding 2020-2026):
+# BTC ~+12%/yr, ETH ~+14%/yr net, positive every year INCLUDING the 2022 bear.
+# "Smart" mode sits FLAT when funding turns negative (essential for volatile alts
+# like SOL, whose 2022 always-on carry was −38% but +5% with the smart filter).
+# Data: OKX public API (Binance/Bybit geo-blocked here; OKX needs no key).
+#
+# PHASE 1 IS PAPER-ONLY: carry_bot.py has NO live-execution code path, so it
+# physically cannot place real orders regardless of any flag. CARRY_LIVE_ENABLED
+# is reserved for a future Phase 2 and is a no-op today (defence in depth).
+CARRY_TOKENS         = ["BTC", "ETH", "SOL"]            # majors carry best; alts rely on smart
+CARRY_QUOTE          = os.getenv("CARRY_QUOTE", "USDT")  # OKX perps are USDT-margined
+CARRY_NOTIONAL_USD   = float(os.getenv("CARRY_NOTIONAL_USD", 1000))  # per-leg size per token
+CARRY_LEVERAGE       = float(os.getenv("CARRY_LEVERAGE", 2.0))       # short-perp leverage (conservative)
+CARRY_SMART          = os.getenv("CARRY_SMART", "true").lower() == "true"  # sit out negative funding
+CARRY_MIN_APR        = float(os.getenv("CARRY_MIN_APR", 0.0))   # enter ON when funding APR ≥ this (frac: 0.03=3%)
+CARRY_EXIT_APR       = float(os.getenv("CARRY_EXIT_APR", -0.03))  # exit to FLAT when APR ≤ this (hysteresis vs churn)
+CARRY_PERP_FEE_PCT   = float(os.getenv("CARRY_PERP_FEE_PCT", 0.05))  # per perp leg per side (%) — OKX taker ~0.05
+CARRY_SPOT_FEE_PCT   = float(os.getenv("CARRY_SPOT_FEE_PCT", 0.10))  # per spot leg per side (%) — OKX taker ~0.10
+CARRY_POLL_SECONDS   = int(os.getenv("CARRY_POLL_SECONDS", 300))
+CARRY_STATE_FILE     = os.getenv("CARRY_STATE_FILE", "carry_state.json")
+CARRY_LIVE_ENABLED   = os.getenv("CARRY_LIVE_ENABLED", "false").lower() == "true"  # Phase 2 only; no-op now
+# Self-served dashboard: `python3 carry_bot.py` also serves the web UI (🪙 Carry
+# tab). Same Flask app + port as bot.py/sma_bot — run ONE server; the others skip
+# if the port is taken. The Carry tab reads carry_state.json regardless of host.
+CARRY_DASHBOARD      = True
+CARRY_DASHBOARD_PORT = 8081

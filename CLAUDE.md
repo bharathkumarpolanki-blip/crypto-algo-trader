@@ -40,7 +40,20 @@ ml/          — feature_builder, preprocessor, signal_predictor,
 ui/          — dashboard (Flask + web UI), state (thread-safe shared state)
 webhook/     — TradingView webhook bot: store (ledger), engine (parse/risk/exec),
                server (Flask: /webhook + dashboard).  Entry: tradingview_bot.py
+carry/       — delta-neutral funding-carry harvester: data (OKX keyless),
+               engine (book/accrual/smart), store.  Entry: carry_bot.py (see CARRY.md)
 ```
+
+## Carry harvester (carry_bot.py — see CARRY.md)
+
+Self-contained PAPER service. Harvests the perp funding premium with a delta-neutral
+book (long spot + short perp, equal coin qty) — a *structural* edge (cash-and-carry),
+NOT prediction. Feasibility (Binance 2020-2026): BTC ~+12%/yr, ETH ~+14%/yr net,
+positive through the 2022 bear; SOL needs the "smart" filter (sit FLAT on negative
+funding). Data from OKX public API (Binance/Bybit geo-blocked). PHASE 1 IS PAPER-ONLY:
+no live-execution path exists, so it cannot place a real order regardless of any flag.
+The +12-14% excludes the real risks (counterparty/exchange failure = dominant, short-leg
+liquidation, capital-efficiency drag, regime compression, tax) — those are Phase 2.
 
 ## TradingView webhook bot (tradingview_bot.py — see WEBHOOK.md)
 
