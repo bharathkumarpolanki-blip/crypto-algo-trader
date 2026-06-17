@@ -245,7 +245,56 @@ Sheets export, CSV paid-only); **API $300/mo** (programmatic unlocks endpoint �
 `research/token_unlock_full.py`, `research/token_unlock_confirm.py` (real-date harness),
 `research/data/README.md` (CSV format for the DefiLlama export).
 
-### 8.9 Status of the bottom line
-Mostly unchanged — BUT for the first time there is a **live, validated lead** (token-unlock-day
-effect) pending one real-date confirmation. Everything else remains: no deployable alpha;
-sma_bot (200d SMA) is the deployable risk system; bot.py is a sandbox.
+### 8.9 CROSS-VALIDATION VERDICT — unlock-day lead is DEAD (artifact confirmed)
+Spent ~$50 (DefiLlama Pro trial). Exported mcap+price for 8 tokens (Arbitrum,
+Optimism, Aptos, Sui, Celestia, Starknet, Ethena, Jupiter) over 2023-2026 (3+ yr,
+multi-regime) via **DefiLlama Sheets** (`=DEFILLAMA_HISTORICAL`). Saved to
+`research/data/defillama/*.csv`. Ran **`research/token_unlock_defillama.py`** — the
+decisive day-effect placebo on a SECOND, INDEPENDENT data source spanning 3+ years
+(supply = mcap/price, abnormal = token−BTC, BTC daily paginated from Coinbase).
+
+Result (201 unlock events, 8 tokens):
+- **Unlock-DAY abnormal −0.55%, p=0.13 — NOT significant** (CoinGecko was −1.5%, p=0.003).
+- **Day-effect placebo: real −0.55% vs random −0.18%, diff −0.37%, permutation p=0.14 — NOT
+  distinguishable from drift** (CoinGecko was p=0.0000).
+- The effect **smeared into the PRE-window** (−2.15% full / −3.43% held-out, p=0.014) — the
+  signature of a **detection-timing mismatch**: the two sources stamp the supply change on
+  different days, so the "day" effect moves and loses day-level significance.
+- **Robustness kill-shot:** stricter/cleaner unlock detection should SHARPEN a real effect.
+  Instead it VANISHES — jump>1.5% any-spike −0.39% (p=0.13) → jump>5% persistent-step −0.02%
+  (p=0.50). A genuine forced-sell would be STRONGEST at the biggest, realest unlocks. It's
+  zero there. The "signal" rode on detection noise, not unlocks.
+
+**Conclusion: the unlock-day effect does NOT replicate cross-source or cross-regime. It was a
+CoinGecko-365d regime + supply-detection-timing artifact.** This is the 26th approach to die
+the same in-sample-mirage / OOS-collapse death. The lead is DEAD.
+
+**The discipline WORKED:** we did NOT deploy on the in-sample p=0.000. We bought independent
+multi-year data and the cross-validation caught the artifact for ~$50. That is exactly the
+capital-protection the framework exists for.
+
+### 8.10 PIVOT: prediction is dead → CARRY is the first real deployable edge
+After 26 prediction approaches died, we changed the game from PREDICTION to CARRY.
+Delta-neutral funding harvest (long spot + short perp) banks the perpetual-swap risk
+premium WITHOUT forecasting price. Phase-0 feasibility (`research/carry_feasibility.py`,
+full Binance funding dumps 2020-2026 from data.binance.vision — the CDN, not the
+geo-blocked API; OKX/Gate/KuCoin only retain ~3mo):
+- **BTC +11.9%/yr net, ETH +14.2%/yr net, positive EVERY year incl. 2022 bear (BTC +4.2%,
+  ETH +0.8%).** 86% of periods positive.
+- **SOL** always-on +0.1% (2022 = −38%, the FTX/SOL short-funding blowout) BUT **"smart"
+  variant (sit out negative funding) = +12.7%** → alts REQUIRE the smart filter.
+- Trustworthy because STRUCTURAL not statistical (the cash-and-carry basis trade), known
+  mechanism, survived the bear (the test directional strategies failed).
+- Catches are all RISK-side (NOT in the +12%): counterparty/exchange failure (the big one),
+  short-leg liquidation, capital efficiency (~12% notional → ~8-12% on total capital),
+  current-regime funding compression (2026 thin ~+0.9%), tax (frequent ordinary income).
+- **Phase-0 VERDICT: PASS.** Next = Phase 1 PAPER harvester (no money): long-spot/short-perp
+  loop with margin + liquidation management + funding-flip "smart" exit, on live data.
+  Live only on explicit say-so, on a perp venue (Coinbase spot is long-only).
+
+### 8.11 Status of the bottom line (current)
+No deployable *prediction alpha* in any free/cheap data (~26 approaches). Deployable artifacts
+now THREE: (1) **carry harvester** (delta-neutral funding, ~8-12%/yr, Phase-0 passed, Phase-1
+paper next — the first real *economic* edge), (2) **200d SMA exposure engine** (`sma_bot.py`,
+drawdown control — NOT alpha), (3) **`validate.py` + frozen-audit framework** (kills false
+positives cheaply — just caught the unlock artifact for $50). bot.py stays a DRY_RUN sandbox.

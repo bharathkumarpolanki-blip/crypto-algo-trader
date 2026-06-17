@@ -238,6 +238,68 @@ out-of-sample, permutation, and bootstrap validation. All harnesses live in
 | On-chain | MVRV / NUPL | biggest in-sample IC (−0.23), **dead OOS** (−0.03) |
 | Risk targets | vol / drawdown / crash prediction | signals predict **volatility** (IC up to 0.25) far more than returns — category error confirmed |
 | Fragility Score | composite risk score | survived a single OOS split, then **DESTROYED** by frozen audit |
+| Token unlocks | unlock-DAY forced-supply event study | **in-sample real** (CoinGecko 365d: −1.5%, placebo p=0.000, holdout p=0.015); **DEAD on cross-validation** (DefiLlama, 3yr, 8 tokens: day −0.55% p=0.13, placebo p=0.14; effect *vanishes* under cleaner detection) |
+
+## The token-unlock lead — how a "real finding" died on cross-validation
+The forced-flow frontier produced the one in-sample result that passed every gate:
+on the free CoinGecko 365-day data, tokens fell **−1.5% vs BTC on supply-unlock
+days** (held-out tokens −1.31% p=0.015; day-effect placebo permutation **p=0.0000**).
+We deliberately did **not** trade it. We spent ~$50 on a DefiLlama Pro trial and
+re-ran the **decisive day-effect placebo on a second, independent data source over
+3+ years** (8 tokens, mcap+price → supply, BTC-relative abnormal returns,
+`research/token_unlock_defillama.py`):
+- Unlock-day abnormal **−0.55%, p=0.13** (was −1.5% / p=0.003) — **not significant**.
+- Day-effect placebo **diff −0.37%, permutation p=0.14** (was p=0.0000) — **not
+  distinguishable from drift**.
+- The effect **smeared into the pre-window** (held-out −3.43%, p=0.014) — the
+  fingerprint of a **detection-timing mismatch** between the two providers' supply
+  timestamps.
+- **Kill-shot:** a real forced-sell sharpens as you filter to bigger, realer
+  unlocks. Instead it **vanishes** — jump>1.5% any-spike −0.39% (p=0.13) →
+  jump>5% persistent-step **−0.02% (p=0.50)**. The "signal" rode detection noise.
+
+**Verdict: CoinGecko-365d regime + supply-detection-timing artifact, not a real,
+deployable forced-flow edge.** It is the 26th approach to die the in-sample-mirage /
+OOS-collapse death — and the cleanest demonstration that the validation framework,
+not any single signal, is the asset: it caught the artifact for ~$50 instead of in
+live P&L.
+
+## THE CARRY EDGE — first regime-surviving, deployable economic edge (not alpha)
+After ~26 *prediction* approaches died, we changed the game from prediction to
+**carry**. Delta-neutral funding harvest (long spot + short perp) collects the
+perpetual-swap risk premium — leveraged longs persistently overpay to be long, and
+the delta-neutral book banks it **without forecasting price**. Full Binance funding
+history 2020-2026 (`research/carry_feasibility.py`, realized funding summed per year):
+
+| Token | Ann. net (always-on) | 2021 bull | 2022 BEAR | 2024 | worst full yr | % periods + |
+|---|---|---|---|---|---|---|
+| BTC | **+11.9%** | +30.7% | **+4.2%** | +12.0% | +4.2% | 86% |
+| ETH | **+14.2%** | +37.6% | **+0.8%** | +13.0% | +0.8% | 86% |
+| SOL | +0.1% (always-on) / **+12.7% smart** | +28.7% | −38.1% / +4.9% smart | +13.7% | smart +2.7% | 72% |
+
+**Why it's trustworthy where the rest weren't:** it's *structural, not statistical* —
+the cash-and-carry basis trade every delta-neutral crypto fund runs, with a known
+mechanism (perp leverage demand). It **survived the 2022 bear** (BTC +4.2%, the test
+every directional strategy failed) because the edge isn't directional. BTC/ETH were
+**positive every single year**. For volatile alts (SOL) you MUST use the **"smart"
+variant — sit out negative funding** (don't hold the short when the market pays you
+to be long); that turns SOL's −38% 2022 into +4.9%.
+
+**What the +12-14% does NOT include (the real, risk-side catches):**
+1. **Counterparty risk** — collateral sits ON the exchange; an FTX-style failure can
+   wipe 100%, dwarfing a year of carry. Unhedgeable. Tier-1 venues, diversify, sweep profits.
+2. **Liquidation on the short** — a price rip eats the short's margin; needs conservative
+   leverage + auto-deleverage or the hedge breaks and you're naked.
+3. **Capital efficiency** — a margin buffer to avoid (2) means ~12% on notional ≈ **~8-12%
+   on total capital**.
+4. **Regime compression NOW** — current funding is thin (BTC +0.9% annualized in 2026);
+   the fat carry appears in bull manias — i.e. fattest exactly when blow-up risk is highest.
+5. **Tax** — funding is frequent ordinary income.
+
+**Verdict: Phase 0 PASSES.** Carry is a real, scalable, delta-neutral ~8-12%/yr that
+survives regimes — the catches are all RISK-engineering (what this codebase's risk
+machinery exists for), not edge-existence. GO for a PAPER harvester (Phase 1). Live
+only on explicit say-so, on a perp venue, with hardened margin management.
 
 ## Key methodological findings
 1. **Returns are unpredictable OOS; risk (volatility) is predictable** — but mostly
