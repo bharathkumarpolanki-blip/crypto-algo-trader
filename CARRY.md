@@ -37,10 +37,20 @@ directional strategy failed — because the edge isn't directional. Volatile alt
   (`liqDist`). Cross-margined against the spot long the book is naturally safe (spot
   gains fund the short's losses); the number is what a live operator must watch.
 
-## Data source
+## Data source (`CARRY_DATA_VENUE`)
 
-OKX public API (no key, read-only). Binance (451) and Bybit (403) are geo-blocked from
-here; OKX serves spot ticker + perp ticker + funding rate fine. USDT-margined perps.
+Match the venue you intend to trade live — **funding differs by venue** (same day:
+ETH was OKX +3.6% vs **Hyperliquid +11%** APR).
+
+- **`hyperliquid`** (default) — the Phase-2 target. Perp funding + mark from
+  Hyperliquid (ccxt, keyless, **hourly** funding); long-spot-leg price from
+  **Coinbase** public. This models the REAL cross-venue book (long spot on Coinbase
+  + short perp on Hyperliquid), so the basis residual is genuine. Both venues are
+  reachable from **US AWS regions**, so this sidesteps OKX's US geo-block on EC2.
+- **`okx`** — both legs on OKX (BTC/USDT spot + perp, 8h funding). Single-venue, but
+  OKX is US-geo-restricted → non-US hosts only. (Binance 451 / Bybit 403 here.)
+
+All read-only, no API keys, no orders.
 
 ## Run
 

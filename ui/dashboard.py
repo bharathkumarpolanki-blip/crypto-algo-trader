@@ -434,6 +434,7 @@ def api_carry_paper():
         s = carry_bot.portfolio_summary(state)
         return jsonify({"running": True, "last_cycle": state.get("last_cycle"),
                         "cycles": state.get("cycles", 0), "smart": _cfg.CARRY_SMART,
+                        "venue": getattr(_cfg, "CARRY_DATA_VENUE", "hyperliquid"),
                         "notional": _cfg.CARRY_NOTIONAL_USD, "leverage": _cfg.CARRY_LEVERAGE,
                         **s})
     except Exception as e:
@@ -1194,7 +1195,7 @@ async function loadCarryPaper() {
       body.innerHTML  = '<tr><td colspan="10" class="empty">—</td></tr>';
       return;
     }
-    upd.textContent = `${fmt(d.days,2)}d · ${d.cycles} cycles · smart ${d.smart?'on':'off'}`
+    upd.textContent = `${d.venue||'?'} · ${fmt(d.days,2)}d · ${d.cycles} cycles · smart ${d.smart?'on':'off'}`
       + (d.last_cycle ? ' · ' + new Date(d.last_cycle).toLocaleString() : '');
     const ncls = d.tot_net>=0?'pos':'neg', s=d.tot_net>=0?'+':'';
     const napr = (d.net_apr==null) ? 'warming up' : (d.net_apr>=0?'+':'')+fmt(d.net_apr,1)+'%';

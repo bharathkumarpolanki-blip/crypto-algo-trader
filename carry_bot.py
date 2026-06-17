@@ -56,7 +56,7 @@ def gather_market(tokens: list[str]) -> dict:
     out = {}
     for t in tokens:
         try:
-            out[t] = data.snapshot(t, config.CARRY_QUOTE)
+            out[t] = data.snapshot(t)
         except Exception as e:
             logger.warning("%s: market fetch failed (%s) — book left untouched", t, e)
     return out
@@ -130,7 +130,7 @@ def print_status(state: dict) -> None:
     print(f"\n{'='*78}")
     print(f"  CARRY HARVESTER ({mode}) — delta-neutral funding harvest")
     print(f"  run {s['days']:.2f}d | cycles {state.get('cycles',0)} | "
-          f"smart={'on' if config.CARRY_SMART else 'off'} | "
+          f"venue={config.CARRY_DATA_VENUE} | smart={'on' if config.CARRY_SMART else 'off'} | "
           f"notional ${config.CARRY_NOTIONAL_USD:.0f}/leg | lev {config.CARRY_LEVERAGE:g}x")
     print(f"{'='*78}")
     if not s["rows"]:
@@ -180,8 +180,8 @@ def _maybe_start_dashboard() -> None:
 
 def run() -> None:
     state = store.load()
-    logger.info("Carry harvester starting | tokens=%s | PAPER | poll every %ds",
-                config.CARRY_TOKENS, config.CARRY_POLL_SECONDS)
+    logger.info("Carry harvester starting | venue=%s | tokens=%s | PAPER | poll every %ds",
+                config.CARRY_DATA_VENUE, config.CARRY_TOKENS, config.CARRY_POLL_SECONDS)
     _maybe_start_dashboard()
     _telegram(f"🪙 Carry harvester started (PAPER) — {', '.join(config.CARRY_TOKENS)}")
     try:

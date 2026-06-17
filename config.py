@@ -285,7 +285,13 @@ WEBHOOK_MARK_INTERVAL_SEC   = int(os.getenv("WEBHOOK_MARK_INTERVAL_SEC", 30))
 # physically cannot place real orders regardless of any flag. CARRY_LIVE_ENABLED
 # is reserved for a future Phase 2 and is a no-op today (defence in depth).
 CARRY_TOKENS         = ["BTC", "ETH", "SOL"]            # majors carry best; alts rely on smart
-CARRY_QUOTE          = os.getenv("CARRY_QUOTE", "USDT")  # OKX perps are USDT-margined
+# Data venue for the PAPER test — match the venue you intend to trade live, since
+# funding differs by venue (e.g. ETH was OKX +3.6% vs Hyperliquid +11% APR on the
+# same day). "hyperliquid" = perp funding/mark from Hyperliquid + spot from Coinbase
+# (the real cross-venue book, and US-EC2-safe: both reachable, unlike OKX). "okx"
+# = both legs on OKX (non-US hosts only).
+CARRY_DATA_VENUE     = os.getenv("CARRY_DATA_VENUE", "hyperliquid")  # hyperliquid | okx
+CARRY_QUOTE          = os.getenv("CARRY_QUOTE", "USDT")  # legacy; venue adapter sets its own quote
 CARRY_NOTIONAL_USD   = float(os.getenv("CARRY_NOTIONAL_USD", 1000))  # per-leg size per token
 CARRY_LEVERAGE       = float(os.getenv("CARRY_LEVERAGE", 2.0))       # short-perp leverage (conservative)
 CARRY_SMART          = os.getenv("CARRY_SMART", "true").lower() == "true"  # sit out negative funding
