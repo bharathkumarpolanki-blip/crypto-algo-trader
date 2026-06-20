@@ -212,6 +212,14 @@ SMA_WEEKLY_PERIOD   = 30                      # weeks (30-week SMA ≈ long-term
 SMA_DASHBOARD       = True
 SMA_DASHBOARD_PORT  = 8081                    # same port as bot.py — run ONE of them
 
+# Yield-on-cash: the trend engine sits in CASH most of the time in chop/downtrends
+# (it's 100% cash right now). Instead of earning $0 while it waits for an uptrend,
+# the idle cash earns the carry funding yield. Paper approximation: cash accrues the
+# live BTC/ETH perp funding APR, floored at 0 (the "smart" carry sits FLAT on
+# negative funding, so cash never PAYS). Real deployment carries the CARRY.md risks
+# (counterparty etc.). Makes managed-beta = ride up-cycles + earn carry while waiting.
+SMA_YIELD_ON_CASH   = os.getenv("SMA_YIELD_ON_CASH", "true").lower() == "true"
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TRADINGVIEW WEBHOOK BOT  (tradingview_bot.py — receive alerts, execute on CB)

@@ -205,6 +205,46 @@ def rebalance(signals: dict, state: dict) -> None:
                    f"Allocated ${spend:,.0f}.")
 
 
+# ── Yield-on-cash: park idle cash in carry while waiting for an uptrend ────────
+
+def _carry_apr() -> float:
+    """
+    The 'smart' carry yield available on idle cash right now: the average BTC/ETH
+    perp funding APR, floored at 0 (the smart book sits FLAT on negative funding,
+    so parked cash never PAYS). Returns 0.0 on any data hiccup — never blocks the
+    trend cycle. Reuses the carry harvester's data adapter (same venue).
+    """
+    if not getattr(config, "SMA_YIELD_ON_CASH", False):
+        return 0.0
+    try:
+        from carry import data as carry_data
+        aprs = []
+        for tok in ("BTC", "ETH"):
+            try:
+                aprs.append(carry_data.snapshot(tok)["apr"])
+            except Exception:
+                pass
+        return max(sum(aprs) / len(aprs), 0.0) if aprs else 0.0   # smart: never <0
+    except Exception:
+        return 0.0
+
+
+def _accrue_cash_yield(state: dict) -> None:
+    """Credit carry funding to the IDLE cash sleeve (paper) for the elapsed time.
+    The trend engine's cash earns ~funding while it waits, instead of sitting at 0."""
+    now = time.time()
+    last = state.get("last_yield_ts")
+    cash = state.get("cash", 0.0)
+    apr = _carry_apr()
+    state["carry_apr"] = apr
+    if last and cash > 0 and apr > 0:
+        elapsed_yr = (now - last) / (365.25 * 86400)
+        earned = cash * apr * elapsed_yr
+        state["cash"] = cash + earned
+        state["carry_earned"] = state.get("carry_earned", 0.0) + earned
+    state["last_yield_ts"] = now
+
+
 def _equity(signals: dict, state: dict) -> float:
     """Total portfolio value = virtual cash + current value of all holdings."""
     cash = state.get("cash", config.TOTAL_CAPITAL_USDT)
@@ -244,6 +284,8 @@ def build_paper_summary(signals: dict, state: dict) -> dict:
         "start_capital": start,
         "pnl": round(pnl, 2),
         "pnl_pct": round(pnl / start * 100, 2) if start else 0.0,
+        "carry_earned": round(state.get("carry_earned", 0.0), 2),   # yield on idle cash
+        "carry_apr": round(state.get("carry_apr", 0.0) * 100, 1),   # current smart-carry APR
         "positions": positions,
         "updated": _now(),
     }
@@ -414,6 +456,8 @@ def run_once() -> None:
         logger.warning("No signals computed (data issue) — skipping this cycle")
         return
     rebalance(signals, state)
+    if not config.SMA_ALERT_ONLY:
+        _accrue_cash_yield(state)        # idle cash earns carry while waiting
     state["last_check"] = _now()
     state["paper"] = build_paper_summary(signals, state)   # for the dashboard
     save_state(state)

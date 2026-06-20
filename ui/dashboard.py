@@ -1100,6 +1100,8 @@ tr.clickable td:first-child::after { content:' ↗';font-size:10px;color:var(--m
     <div style="padding:8px 16px;font-size:12px;color:var(--muted)">
       Live equity &amp; P&amp;L from a running <code>sma_bot.py</code> loop
       (set <code>SMA_ALERT_ONLY=False</code>). Reads <code>sma_state.json</code>.
+      <b>Yield-on-cash:</b> while it sits in cash, the idle balance earns the live
+      smart-carry funding rate (BTC/ETH avg, floored at 0) — see the "Carry on cash" card.
     </div>
     <div class="bt-summary" id="smaPaperCards">
       <div class="empty" style="padding:10px 16px">sma_bot.py not running in trade mode yet.</div>
@@ -1267,11 +1269,13 @@ async function loadSmaPaper() {
     }
     upd.textContent = 'mode: ' + d.mode + (d.last_check ? ' · ' + new Date(d.last_check).toLocaleString() : '');
     const pcls = d.pnl >= 0 ? 'pos' : 'neg', sgn = d.pnl >= 0 ? '+' : '';
+    const carry = (d.carry_earned != null)
+      ? `<div class="bt-card"><div class="bt-card-label">Carry on cash${d.carry_apr?` (${fmt(d.carry_apr,1)}% APR)`:''}</div><div class="bt-card-val pos">+$${fmt(d.carry_earned,2)}</div></div>` : '';
     cards.innerHTML =
       `<div class="bt-card"><div class="bt-card-label">Equity</div><div class="bt-card-val">$${fmt(d.equity,2)}</div></div>
        <div class="bt-card"><div class="bt-card-label">Cash</div><div class="bt-card-val">$${fmt(d.cash,2)}</div></div>
        <div class="bt-card"><div class="bt-card-label">P&L</div><div class="bt-card-val ${pcls}">${sgn}$${fmt(d.pnl,2)} (${sgn}${fmt(d.pnl_pct,1)}%)</div></div>
-       <div class="bt-card"><div class="bt-card-label">Start</div><div class="bt-card-val">$${fmt(d.start_capital,0)}</div></div>`;
+       <div class="bt-card"><div class="bt-card-label">Start</div><div class="bt-card-val">$${fmt(d.start_capital,0)}</div></div>` + carry;
     if (!d.positions || !d.positions.length) {
       body.innerHTML = '<tr><td colspan="6" class="empty">All cash — no holdings</td></tr>';
     } else {
