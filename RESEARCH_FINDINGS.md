@@ -239,6 +239,7 @@ out-of-sample, permutation, and bootstrap validation. All harnesses live in
 | Risk targets | vol / drawdown / crash prediction | signals predict **volatility** (IC up to 0.25) far more than returns — category error confirmed |
 | Fragility Score | composite risk score | survived a single OOS split, then **DESTROYED** by frozen audit |
 | Token unlocks | unlock-DAY forced-supply event study | **in-sample real** (CoinGecko 365d: −1.5%, placebo p=0.000, holdout p=0.015); **DEAD on cross-validation** (DefiLlama, 3yr, 8 tokens: day −0.55% p=0.13, placebo p=0.14; effect *vanishes* under cleaner detection) |
+| Market making | spread-capture vs fees + adverse selection (Hyperliquid, 16 pairs) | **DEAD for retail.** Majors: spread (0.1–1.4bps) < round-trip maker fee (3bps) → fees eat it. Wide-spread alts (OP/JUP/TIA 4–5bps): gross room exists but per-step mid move (4–6bps) > half-spread (2–2.5bps) → adverse selection eats it. MM is a speed game; slow money loses. |
 
 ## The token-unlock lead — how a "real finding" died on cross-validation
 The forced-flow frontier produced the one in-sample result that passed every gate:
